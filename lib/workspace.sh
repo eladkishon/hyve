@@ -141,7 +141,13 @@ cmd_create() {
 
     local workspace_dir=$(get_workspace_dir "$feature_name")
     local branch_prefix=$(get_branch_prefix)
-    local branch_name="${branch_prefix}${feature_name}"
+    # When using --from, the branch name is used as-is (no prefix added)
+    local branch_name
+    if $use_existing; then
+        branch_name="$feature_name"
+    else
+        branch_name="${branch_prefix}${feature_name}"
+    fi
 
     if workspace_exists "$feature_name"; then
         log_error "Workspace '$feature_name' already exists"
