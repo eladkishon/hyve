@@ -1,0 +1,23 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hexagon background -->
+  <path d="M60 5L105.98 31.25V83.75L60 110L14.02 83.75V31.25L60 5Z" fill="#1a1a2e" stroke="#f59e0b" stroke-width="3"/>
+
+  <!-- Inner hexagon pattern -->
+  <path d="M60 20L90.31 37.5V72.5L60 90L29.69 72.5V37.5L60 20Z" fill="#16213e" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.5"/>
+
+  <!-- Center hexagon -->
+  <path d="M60 35L75.16 43.75V61.25L60 70L44.84 61.25V43.75L60 35Z" fill="#f59e0b" fill-opacity="0.2" stroke="#f59e0b" stroke-width="2"/>
+
+  <!-- Connection lines (representing branches/worktrees) -->
+  <line x1="60" y1="52.5" x2="35" y2="30" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <line x1="60" y1="52.5" x2="85" y2="30" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <line x1="60" y1="52.5" x2="35" y2="75" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <line x1="60" y1="52.5" x2="85" y2="75" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- Node dots -->
+  <circle cx="35" cy="30" r="4" fill="#f59e0b"/>
+  <circle cx="85" cy="30" r="4" fill="#f59e0b"/>
+  <circle cx="35" cy="75" r="4" fill="#f59e0b"/>
+  <circle cx="85" cy="75" r="4" fill="#f59e0b"/>
+  <circle cx="60" cy="52.5" r="6" fill="#f59e0b"/>
+</svg>

@@ -1,0 +1,147 @@
+#!/bin/bash
+# ⬡ hyve - Autonomous Multi-Repo Agent Workspaces
+# https://github.com/your-username/hyve
+#
+# Create isolated feature workspaces with git worktrees and optional
+# database cloning for parallel multi-repo development with Claude Code.
+
+set -e
+
+VERSION="1.0.0"
+
+# Find the installation directory
+if [ -L "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
+else
+    SCRIPT_PATH="${BASH_SOURCE[0]}"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
+
+# Source library files
+source "$LIB_DIR/utils.sh"
+source "$LIB_DIR/config.sh"
+source "$LIB_DIR/database.sh"
+source "$LIB_DIR/workspace.sh"
+source "$LIB_DIR/commands.sh"
+
+show_help() {
+    print_banner
+    cat << 'EOF'
+USAGE
+    hyve <command> [options]
+
+COMMANDS
+    init                              Initialize hyve in current directory
+    create <name> [repos...]          Create new feature workspace
+    create --existing                 Create from existing branch (interactive)
+    create --from <branch> [repos...] Create from specific existing branch
+    list                              List all workspaces
+    status [name]                     Show workspace status
+    start <name>                      Start workspace services (database)
+    stop <name>                       Stop workspace services
+    cleanup <name>                    Remove workspace (keeps git branches)
+    shell <name>                      Open shell in workspace
+    db <name>                         Connect to workspace database
+    install-commands                  Install Claude Code slash commands
+
+OPTIONS
+    -v, --version                     Show version
+    -h, --help                        Show this help
+
+EXAMPLES
+    # Initialize in your project
+    cd ~/my-project
+    hyve init
+
+    # Create a new feature workspace
+    hyve create user-auth backend frontend
+
+    # Create from existing branch
+    hyve create --existing
+
+    # Check status
+    hyve status user-auth
+
+    # Connect to database
+    hyve db user-auth
+
+    # Clean up
+    hyve cleanup user-auth
+
+CONFIGURATION
+    Create .hyve.yaml in your project root. See 'hyve init' for template.
+
+    repos:
+      backend:
+        path: ./backend
+      frontend:
+        path: ./frontend
+
+    database:
+      enabled: true
+      source_port: 5432
+      base_port: 5500
+
+More info: https://github.com/eladkishon/hyve
+EOF
+}
+
+main() {
+    case "${1:-}" in
+        init)
+            shift
+            cmd_init "$@"
+            ;;
+        create)
+            shift
+            cmd_create "$@"
+            ;;
+        list)
+            shift
+            cmd_list "$@"
+            ;;
+        status)
+            shift
+            cmd_status "$@"
+            ;;
+        start)
+            shift
+            cmd_start "$@"
+            ;;
+        stop)
+            shift
+            cmd_stop "$@"
+            ;;
+        cleanup)
+            shift
+            cmd_cleanup "$@"
+            ;;
+        shell)
+            shift
+            cmd_shell "$@"
+            ;;
+        db)
+            shift
+            cmd_db "$@"
+            ;;
+        install-commands)
+            shift
+            cmd_install_commands "$@"
+            ;;
+        --version|-v)
+            echo "hyve version $VERSION"
+            ;;
+        --help|-h|"")
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $1"
+            echo ""
+            echo "Run 'hyve --help' for usage."
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

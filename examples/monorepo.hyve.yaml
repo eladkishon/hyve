@@ -1,0 +1,32 @@
+# Example: Monorepo with multiple services
+# Common pattern for Next.js/Turborepo style projects
+
+workspaces_dir: ./workspaces
+
+repos:
+  api:
+    path: ./apps/api
+  web:
+    path: ./apps/web
+  mobile:
+    path: ./apps/mobile
+  ui:
+    path: ./packages/ui
+  shared:
+    path: ./packages/shared
+
+database:
+  enabled: true
+  image: postgres:15
+  source_port: 5432
+  base_port: 5500
+  user: postgres
+  password: postgres
+  name: myapp_dev
+
+branches:
+  prefix: feature/
+
+agent:
+  autonomy: semi
+  checkpoint_before_commit: true

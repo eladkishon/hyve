@@ -1,0 +1,22 @@
+# Example: Frontend-only or no database needed
+# For projects that don't need database isolation
+
+workspaces_dir: ./workspaces
+
+repos:
+  web:
+    path: ./web
+  docs:
+    path: ./docs
+  design-system:
+    path: ./packages/design-system
+
+database:
+  enabled: false
+
+branches:
+  prefix: feature/
+
+agent:
+  autonomy: semi
+  checkpoint_before_commit: true

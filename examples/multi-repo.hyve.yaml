@@ -1,0 +1,34 @@
+# Example: Multiple separate repositories
+# Common for microservices or separate frontend/backend repos
+
+workspaces_dir: ~/dev/workspaces
+
+repos:
+  backend:
+    path: ~/dev/my-backend
+    remote: git@github.com:myorg/backend.git
+  frontend:
+    path: ~/dev/my-frontend
+    remote: git@github.com:myorg/frontend.git
+  admin-dashboard:
+    path: ~/dev/admin-dashboard
+    remote: git@github.com:myorg/admin.git
+  mobile-app:
+    path: ~/dev/mobile-app
+    remote: git@github.com:myorg/mobile.git
+
+database:
+  enabled: true
+  image: postgres:14
+  source_port: 5432
+  base_port: 6000
+  user: dev
+  password: devpassword
+  name: app_development
+
+branches:
+  prefix: feat/
+
+agent:
+  autonomy: semi
+  checkpoint_before_commit: true
