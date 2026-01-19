@@ -54,16 +54,32 @@ EOF
 
     # hyve-work command
     cat > "$commands_dir/hyve-work.md" << 'EOF'
-Spawn an autonomous agent to work on a Hyve feature.
+Start working on a Hyve feature with a single command.
 
-Arguments: $ARGUMENTS (format: <feature-name> <task-description>)
+Arguments: $ARGUMENTS (format: <feature-name> [repos...] -- <task-description>)
 
-Example: /hyve-work user-auth "Add password reset endpoint"
+Examples:
+- /hyve-work user-auth -- "Add password reset endpoint"
+- /hyve-work user-auth server webapp -- "Add login API"
+- /hyve-work --from existing-branch server -- "Continue work on feature"
 
-## Pre-flight:
-1. Verify workspace exists: `hyve status <feature-name>`
-2. Ensure services are running: `hyve start <feature-name>`
-3. Read workspace config from .hyve-workspace.json
+## Pre-flight (auto-setup):
+
+1. Check if workspace exists: `hyve status <feature-name>`
+2. If workspace does NOT exist:
+   - Parse repos from arguments (or use all repos if none specified)
+   - Create it: `hyve create <feature-name> [repos...]` or `hyve create --from <branch> [repos...]`
+   - Report the new workspace creation to the user
+3. If workspace exists:
+   - Report that existing workspace is being used
+4. Start services: `hyve start <feature-name>`
+5. Read workspace config from .hyve-workspace.json
+
+## Argument Parsing:
+
+- Everything before `--` is workspace config (feature name, optional repos, optional --from flag)
+- Everything after `--` is the task description
+- If no `--` separator, treat last quoted argument as task description
 
 ## Agent Configuration:
 
