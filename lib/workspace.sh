@@ -108,8 +108,15 @@ cmd_create() {
         fi
     fi
 
-    # If from_branch specified, use it as feature name
-    if [ -n "$from_branch" ] && [ -z "$feature_name" ]; then
+    # If --from was used:
+    # - from_branch is the branch name (without prefix)
+    # - feature_name becomes the first repo (if any)
+    # - We need to use from_branch as the feature name
+    if [ -n "$from_branch" ]; then
+        # If feature_name was set, it's actually a repo
+        if [ -n "$feature_name" ]; then
+            repos=("$feature_name" "${repos[@]}")
+        fi
         feature_name="$from_branch"
     fi
 
