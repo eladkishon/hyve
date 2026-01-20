@@ -3,7 +3,7 @@ import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { execa } from "execa";
 import { spawn } from "child_process";
-import { existsSync, mkdirSync, writeFileSync, openSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, openSync, watch } from "fs";
 import { join } from "path";
 import { loadConfig, getWorkspaceDir } from "../config.js";
 import {
@@ -51,7 +51,8 @@ export const runCommand = new Command("run")
   .description("Start all services for a workspace")
   .argument("[name]", "Workspace name")
   .argument("[services...]", "Specific services to run")
-  .action(async (name: string | undefined, services: string[]) => {
+  .option("--watch", "Watch for file changes and re-run pre_run on dependent services")
+  .action(async (name: string | undefined, services: string[], options: { watch?: boolean }) => {
     setupSignalHandlers();
     const workspaces = listWorkspaces();
 
@@ -244,8 +245,14 @@ export const runCommand = new Command("run")
     // Mark startup complete - Ctrl+C after this won't kill services
     startupPhase = false;
 
-    // Exit cleanly - services continue running in background
-    process.exit(0);
+    // Start file watcher if --watch flag is set
+    if (options.watch) {
+      await startFileWatcher(name!, config, workspaceDir, runningServices);
+      // File watcher runs indefinitely, don't exit
+    } else {
+      // Exit cleanly - services continue running in background
+      process.exit(0);
+    }
   });
 
 // Wait for a health check URL to respond
@@ -457,4 +464,228 @@ async function startService(
     spinner.stop(`${chalk.red(repo)} failed: ${error.message}`);
     return { name: repo, port, error: error.message };
   }
+}
+
+// File watcher for --watch mode
+async function startFileWatcher(
+  _workspaceName: string,
+  config: ReturnType<typeof loadConfig>,
+  workspaceDir: string,
+  runningServices: Map<string, number>
+) {
+  const serviceConfigs = config.services.definitions;
+  const shellWrapper = config.services.shell_wrapper || "";
+
+  // Find services with watch_files config (trigger services)
+  const triggerServices: Array<{
+    name: string;
+    watchFiles: string[];
+    dir: string;
+  }> = [];
+
+  for (const [name, cfg] of Object.entries(serviceConfigs)) {
+    if (cfg.watch_files && cfg.watch_files.length > 0) {
+      const serviceDir = join(workspaceDir, name);
+      if (existsSync(serviceDir)) {
+        triggerServices.push({
+          name,
+          watchFiles: cfg.watch_files,
+          dir: serviceDir,
+        });
+      }
+    }
+  }
+
+  if (triggerServices.length === 0) {
+    p.log.warn("No services have watch_files configured. Nothing to watch.");
+    process.exit(0);
+  }
+
+  // Find services with pre_run_deps (dependent services)
+  const dependentServices: Array<{
+    name: string;
+    preRun: string;
+    preRunDeps: string[];
+    dir: string;
+  }> = [];
+
+  for (const [name, cfg] of Object.entries(serviceConfigs)) {
+    if (cfg.pre_run_deps && cfg.pre_run_deps.length > 0 && cfg.pre_run) {
+      const serviceDir = join(workspaceDir, name);
+      if (existsSync(serviceDir)) {
+        dependentServices.push({
+          name,
+          preRun: cfg.pre_run,
+          preRunDeps: cfg.pre_run_deps,
+          dir: serviceDir,
+        });
+      }
+    }
+  }
+
+  if (dependentServices.length === 0) {
+    p.log.warn("No services have pre_run_deps configured. Nothing to trigger.");
+    process.exit(0);
+  }
+
+  console.log();
+  console.log(chalk.dim("─".repeat(50)));
+  console.log();
+  console.log(chalk.bold.cyan("File Watcher Active"));
+  console.log();
+
+  for (const trigger of triggerServices) {
+    console.log(`  ${chalk.cyan(trigger.name)} watching:`);
+    for (const pattern of trigger.watchFiles) {
+      console.log(`    - ${pattern}`);
+    }
+  }
+
+  console.log();
+  console.log(chalk.dim("  Will trigger pre_run on:"));
+  for (const dep of dependentServices) {
+    console.log(`    - ${dep.name} (deps: ${dep.preRunDeps.join(", ")})`);
+  }
+
+  console.log();
+  console.log(chalk.dim("  Press Ctrl+C to stop watching"));
+  console.log();
+
+  // Track last run time to debounce
+  let lastRunTime = 0;
+  const debounceMs = 2000;
+  let pendingRun: NodeJS.Timeout | null = null;
+
+  // Function to run pre_run on dependent services
+  async function runPreRunForTrigger(triggerName: string, changedFile: string) {
+    const now = Date.now();
+    if (now - lastRunTime < debounceMs) {
+      // Debounce - schedule for later
+      if (pendingRun) clearTimeout(pendingRun);
+      pendingRun = setTimeout(() => runPreRunForTrigger(triggerName, changedFile), debounceMs);
+      return;
+    }
+    lastRunTime = now;
+
+    const timestamp = new Date().toLocaleTimeString();
+    console.log();
+    console.log(chalk.yellow(`[${timestamp}]`), `Change in ${chalk.cyan(triggerName)}:`, changedFile);
+
+    // Find dependent services that depend on this trigger
+    const toRun = dependentServices.filter((dep) => dep.preRunDeps.includes(triggerName));
+
+    if (toRun.length === 0) {
+      console.log(chalk.dim("  No services depend on this trigger"));
+      return;
+    }
+
+    // Wait for the trigger service to be healthy before running pre_run
+    const triggerConfig = serviceConfigs[triggerName];
+    const triggerPort = runningServices.get(triggerName);
+    if (triggerConfig?.health_check && triggerPort) {
+      const healthUrl = triggerConfig.health_check.replace("${port}", String(triggerPort));
+      console.log(`  ${chalk.dim("Waiting for")} ${triggerName} ${chalk.dim("to be healthy...")}`)
+
+      const maxWaitMs = 30000;
+      const startTime = Date.now();
+      let healthy = false;
+
+      while (Date.now() - startTime < maxWaitMs) {
+        try {
+          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(2000) });
+          if (response.ok) {
+            healthy = true;
+            break;
+          }
+        } catch {
+          // Keep trying
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      if (!healthy) {
+        console.log(`  ${chalk.yellow("⚠")} ${triggerName} health check timed out, proceeding anyway...`);
+      } else {
+        console.log(`  ${chalk.green("✓")} ${triggerName} is healthy`);
+      }
+    }
+
+    for (const dep of toRun) {
+      console.log(`  ${chalk.cyan("→")} Running pre_run for ${chalk.bold(dep.name)}...`);
+
+      try {
+        // Replace ${server_port} with actual port
+        let preRunCmd = dep.preRun;
+        const serverPort = runningServices.get("server");
+        if (serverPort) {
+          preRunCmd = preRunCmd.replace(/\$\{server_port\}/g, String(serverPort));
+        }
+
+        const fullCmd = shellWrapper ? `${shellWrapper} ${preRunCmd}` : preRunCmd;
+
+        await execa("bash", ["-l", "-c", `cd '${dep.dir}' && ${fullCmd}`], {
+          cwd: dep.dir,
+          timeout: 120000,
+          env: process.env,
+        });
+
+        console.log(`  ${chalk.green("✓")} ${dep.name} complete`);
+      } catch (error: any) {
+        console.log(`  ${chalk.red("✗")} ${dep.name} failed:`, error.shortMessage || error.message);
+      }
+    }
+
+    console.log();
+    console.log(chalk.dim(`[${timestamp}] Watching for changes...`));
+  }
+
+  // Start watching each trigger service
+  for (const trigger of triggerServices) {
+    // Use chokidar for better file watching (fallback to fs.watch)
+    try {
+      const chokidar = await import("chokidar");
+
+      const watcher = chokidar.watch(trigger.watchFiles, {
+        cwd: trigger.dir,
+        ignoreInitial: true,
+        ignored: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**"],
+      });
+
+      watcher.on("change", (path: string) => {
+        runPreRunForTrigger(trigger.name, path);
+      });
+
+      watcher.on("add", (path: string) => {
+        runPreRunForTrigger(trigger.name, path);
+      });
+
+      p.log.success(`Watching ${trigger.name} with chokidar`);
+    } catch {
+      // Fallback to basic fs.watch (less reliable for globs)
+      p.log.warn(`chokidar not available, using basic fs.watch for ${trigger.name}`);
+
+      watch(trigger.dir, { recursive: true }, (_eventType, filename) => {
+        if (!filename) return;
+
+        // Check if filename matches any watch pattern
+        const matches = trigger.watchFiles.some((pattern) => {
+          // Simple glob matching
+          if (pattern.includes("**")) {
+            const regex = new RegExp(
+              pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\//g, "\\/")
+            );
+            return regex.test(filename);
+          }
+          return filename.includes(pattern.replace(/\*/g, ""));
+        });
+
+        if (matches) {
+          runPreRunForTrigger(trigger.name, filename);
+        }
+      });
+    }
+  }
+
+  // Keep the process running
+  await new Promise(() => {}); // Never resolves
 }

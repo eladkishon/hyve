@@ -14,6 +14,8 @@ export interface ServiceDefinition {
   env_var?: string;
   depends_on?: string[];
   pre_run?: string;
+  pre_run_deps?: string[];  // Services that trigger pre_run when they change
+  watch_files?: string[];   // File patterns to watch for changes
   health_check?: string;
 }
 
@@ -23,7 +25,6 @@ export interface HyveConfig {
   repos: Record<string, RepoConfig>;
   database: {
     enabled: boolean;
-    image?: string;
     source_port: number;
     base_port: number;
     user: string;
@@ -41,6 +42,10 @@ export interface HyveConfig {
     base: string;
   };
 }
+
+// Cache for config to avoid repeated file reads and YAML parsing
+let cachedConfig: HyveConfig | null = null;
+let cachedConfigPath: string | null = null;
 
 export function findConfigFile(startDir: string = process.cwd()): string | null {
   let dir = startDir;
@@ -64,6 +69,11 @@ export function loadConfig(): HyveConfig {
     throw new Error("No .hyve.yaml found. Run 'hyve init' first.");
   }
 
+  // Return cached config if available
+  if (cachedConfig && cachedConfigPath === configPath) {
+    return cachedConfig;
+  }
+
   const content = readFileSync(configPath, "utf-8");
   const config = parse(content) as HyveConfig;
 
@@ -84,6 +94,10 @@ export function loadConfig(): HyveConfig {
     password: "postgres",
     name: "postgres",
   };
+
+  // Cache the result
+  cachedConfig = config;
+  cachedConfigPath = configPath;
 
   return config;
 }

@@ -1,10 +1,10 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { execa } from "execa";
-import { rmSync, existsSync } from "fs";
+import { execSync } from "child_process";
+import { rmSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { loadConfig, getWorkspaceDir, getRepoPath } from "../config.js";
+import { getWorkspaceDir, getRepoPath, getProjectRoot } from "../config.js";
 import { listWorkspaces, workspaceExists, getWorkspaceConfig } from "../utils.js";
 
 export const cleanupCommand = new Command("cleanup")
@@ -43,7 +43,7 @@ export const cleanupCommand = new Command("cleanup")
     // Confirm
     if (!options.force) {
       const confirmed = await p.confirm({
-        message: `Remove workspace "${chalk.bold(name)}"?\n  This will delete worktrees and database but preserve git branches.`,
+        message: `Remove workspace "${chalk.bold(name)}"?\n  This will delete worktrees but preserve git branches.`,
       });
       if (p.isCancel(confirmed) || !confirmed) {
         p.cancel("Cancelled");
@@ -51,47 +51,84 @@ export const cleanupCommand = new Command("cleanup")
       }
     }
 
-    p.intro(chalk.cyan(`Removing workspace: ${chalk.bold(name)}`));
+    console.log(chalk.cyan(`Removing workspace: ${chalk.bold(name)}`));
 
     // Stop and remove database container
     if (config?.database?.container) {
-      const dbSpinner = p.spinner();
-      dbSpinner.start("Removing database...");
       try {
-        await execa("docker", ["rm", "-f", config.database.container]);
-        dbSpinner.stop("Database removed");
+        execSync(`docker rm -f ${config.database.container}`, { stdio: "ignore" });
+        console.log(chalk.green("  ✓ Database removed"));
       } catch {
-        dbSpinner.stop("Database not found");
+        // Container might not exist
       }
     }
 
-    // Remove worktrees in parallel
+    // Remove worktrees - use sync for speed (no async overhead)
     const repos = config?.repos || [];
-    if (repos.length > 0) {
-      const worktreeSpinner = p.spinner();
-      worktreeSpinner.start("Removing worktrees...");
+    for (const repo of repos) {
+      try {
+        const mainRepoPath = getRepoPath(repo);
+        const worktreeDir = join(workspaceDir, repo);
 
-      await Promise.all(
-        repos.map(async (repo) => {
-          try {
-            const mainRepoPath = getRepoPath(repo);
-            const worktreeDir = join(workspaceDir, repo);
+        if (existsSync(mainRepoPath)) {
+          execSync(`git worktree remove "${worktreeDir}" --force 2>/dev/null || true`, {
+            cwd: mainRepoPath,
+            stdio: "ignore",
+          });
+        }
+      } catch {}
+    }
 
-            if (existsSync(mainRepoPath)) {
-              await execa("git", ["worktree", "remove", worktreeDir, "--force"], {
-                cwd: mainRepoPath,
-              });
-              await execa("git", ["worktree", "prune"], { cwd: mainRepoPath });
+    // Prune all worktrees in one batch after removal
+    for (const repo of repos) {
+      try {
+        const mainRepoPath = getRepoPath(repo);
+        if (existsSync(mainRepoPath)) {
+          execSync("git worktree prune", { cwd: mainRepoPath, stdio: "ignore" });
+        }
+      } catch {}
+    }
+
+    // Remove from VS Code workspace file if it exists
+    const projectRoot = getProjectRoot();
+    const vscodeWorkspaceFiles = [
+      join(projectRoot, "code-workspace.code-workspace"),
+      join(projectRoot, ".code-workspace"),
+      join(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`),
+    ];
+
+    for (const vscodeFile of vscodeWorkspaceFiles) {
+      if (existsSync(vscodeFile)) {
+        try {
+          const vscodeContent = JSON.parse(readFileSync(vscodeFile, "utf-8"));
+          if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
+            const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
+
+            // Remove folders that belong to this workspace
+            const originalLength = vscodeContent.folders.length;
+            vscodeContent.folders = vscodeContent.folders.filter(
+              (f: { path?: string; name?: string }) => {
+                // Remove by path match or by name pattern [workspace-name]
+                if (f.path?.startsWith(workspaceRelPath + "/")) return false;
+                if (f.name?.startsWith(`[${name}]`)) return false;
+                return true;
+              }
+            );
+
+            if (vscodeContent.folders.length < originalLength) {
+              writeFileSync(vscodeFile, JSON.stringify(vscodeContent, null, 2) + "\n");
+              console.log(chalk.green("  ✓ Removed from VS Code workspace"));
             }
-          } catch {}
-        })
-      );
-
-      worktreeSpinner.stop("Worktrees removed");
+          }
+        } catch {
+          // Ignore errors
+        }
+        break;
+      }
     }
 
     // Remove workspace directory
     rmSync(workspaceDir, { recursive: true, force: true });
 
-    p.outro(chalk.green(`Workspace "${name}" removed`));
+    console.log(chalk.green(`✓ Workspace "${name}" removed`));
   });

@@ -8,7 +8,7 @@ import chalk8 from "chalk";
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { execa } from "execa";
+import { execSync } from "child_process";
 import { existsSync as existsSync3, mkdirSync, writeFileSync, readFileSync as readFileSync3, copyFileSync } from "fs";
 import { join as join3 } from "path";
 
@@ -16,6 +16,8 @@ import { join as join3 } from "path";
 import { readFileSync, existsSync } from "fs";
 import { parse } from "yaml";
 import { join, dirname } from "path";
+var cachedConfig = null;
+var cachedConfigPath = null;
 function findConfigFile(startDir = process.cwd()) {
   let dir = startDir;
   while (dir !== "/") {
@@ -36,6 +38,9 @@ function loadConfig() {
   if (!configPath) {
     throw new Error("No .hyve.yaml found. Run 'hyve init' first.");
   }
+  if (cachedConfig && cachedConfigPath === configPath) {
+    return cachedConfig;
+  }
   const content = readFileSync(configPath, "utf-8");
   const config = parse(content);
   config.workspaces_dir = config.workspaces_dir || "./workspaces";
@@ -54,6 +59,8 @@ function loadConfig() {
     password: "postgres",
     name: "postgres"
   };
+  cachedConfig = config;
+  cachedConfigPath = configPath;
   return config;
 }
 function getProjectRoot() {
@@ -116,9 +123,8 @@ function getWorkspaceIndex(name) {
 }
 
 // src/commands/create.ts
-var createCommand = new Command("create").description("Create a new feature workspace").argument("[name]", "Feature name").argument("[repos...]", "Additional repos to include").option("--from <branch>", "Create from existing branch").option("--existing", "Select from existing branches").option("--snapshot <name>", "Restore database from snapshot instead of cloning").option("--no-db", "Skip database creation").action(async (name, repos, options) => {
+var createCommand = new Command("create").description("Create a new feature workspace").argument("[name]", "Feature name").argument("[repos...]", "Additional repos to include").option("--from <branch>", "Create from existing branch").option("--existing", "Select from existing branches").option("--no-setup", "Skip running setup scripts").action(async (name, repos, options) => {
   const config = loadConfig();
-  const projectRoot = getProjectRoot();
   if (!name) {
     const result = await p.text({
       message: "Enter feature name:",
@@ -139,206 +145,153 @@ var createCommand = new Command("create").description("Create a new feature work
   const originalName = name;
   name = sanitizeBranchName(name);
   if (originalName !== name) {
-    p.log.info(`Sanitized: ${chalk.dim(originalName)} \u2192 ${chalk.cyan(name)}`);
+    console.log(chalk.dim(`Sanitized: ${originalName} \u2192 ${name}`));
   }
   if (workspaceExists(name)) {
-    p.log.error(`Workspace already exists: ${name}`);
+    console.error(chalk.red(`Workspace already exists: ${name}`));
     process.exit(1);
   }
   const allRepos = [.../* @__PURE__ */ new Set([...config.required_repos, ...repos])];
   if (allRepos.length === 0) {
-    p.log.error("No repos specified and no required_repos configured");
+    console.error(chalk.red("No repos specified and no required_repos configured"));
     process.exit(1);
   }
   const branchName = `${config.branches.prefix}${name}`;
   const workspaceDir = getWorkspaceDir(name);
-  p.intro(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
+  console.log(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
   mkdirSync(workspaceDir, { recursive: true });
-  const worktreeSpinner = p.spinner();
-  worktreeSpinner.start("Creating git worktrees...");
-  const worktreeResults = await Promise.all(
-    allRepos.map(async (repo) => {
+  console.log(chalk.dim("Creating git worktrees..."));
+  const successfulRepos = [];
+  for (const repo of allRepos) {
+    try {
+      const repoPath = getRepoPath(repo);
+      const worktreeDir = join3(workspaceDir, repo);
+      let baseBranch = config.branches.base;
       try {
-        const repoPath = getRepoPath(repo);
-        const worktreeDir = join3(workspaceDir, repo);
-        let baseBranch = config.branches.base;
-        try {
-          const { stdout } = await execa("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], {
-            cwd: repoPath
-          });
-          baseBranch = stdout.replace("refs/remotes/origin/", "").trim();
-        } catch {
-          for (const branch of ["main", "master"]) {
-            try {
-              await execa("git", ["show-ref", "--verify", `refs/heads/${branch}`], {
-                cwd: repoPath
-              });
-              baseBranch = branch;
-              break;
-            } catch {
-            }
+        const stdout = execSync("git symbolic-ref refs/remotes/origin/HEAD", {
+          cwd: repoPath,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"]
+        });
+        baseBranch = stdout.replace("refs/remotes/origin/", "").trim();
+      } catch {
+        for (const branch of ["main", "master"]) {
+          try {
+            execSync(`git show-ref --verify refs/heads/${branch}`, {
+              cwd: repoPath,
+              stdio: "ignore"
+            });
+            baseBranch = branch;
+            break;
+          } catch {
           }
         }
+      }
+      try {
+        execSync(`git fetch origin ${baseBranch}`, { cwd: repoPath, stdio: "ignore" });
+      } catch {
+      }
+      let branchExists = false;
+      try {
+        execSync(`git show-ref --verify refs/heads/${branchName}`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+        branchExists = true;
+      } catch {
+      }
+      if (!branchExists) {
         try {
-          await execa("git", ["fetch", "origin", baseBranch], { cwd: repoPath });
-        } catch {
-        }
-        let branchExists = false;
-        try {
-          await execa("git", ["show-ref", "--verify", `refs/heads/${branchName}`], {
-            cwd: repoPath
+          execSync(`git show-ref --verify refs/remotes/origin/${branchName}`, {
+            cwd: repoPath,
+            stdio: "ignore"
           });
           branchExists = true;
         } catch {
         }
-        if (!branchExists) {
-          try {
-            await execa("git", ["show-ref", "--verify", `refs/remotes/origin/${branchName}`], {
-              cwd: repoPath
-            });
-            branchExists = true;
-          } catch {
-          }
-        }
-        if (branchExists || options.from) {
-          await execa("git", ["worktree", "add", worktreeDir, branchName], {
-            cwd: repoPath
-          });
-        } else {
-          await execa("git", ["worktree", "add", "-b", branchName, worktreeDir, baseBranch], {
-            cwd: repoPath
-          });
-        }
-        return { repo, success: true, message: branchExists ? "existing" : `new from ${baseBranch}` };
-      } catch (error) {
-        return { repo, success: false, message: error.message };
       }
-    })
-  );
-  worktreeSpinner.stop("Git worktrees created");
-  const successfulRepos = [];
-  for (const result of worktreeResults) {
-    if (result.success) {
-      p.log.success(`${result.repo} \u2192 ${branchName} (${result.message})`);
-      successfulRepos.push(result.repo);
-    } else {
-      p.log.error(`${result.repo}: ${result.message}`);
+      if (branchExists || options.from) {
+        execSync(`git worktree add "${worktreeDir}" "${branchName}"`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+      } else {
+        execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}"`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+      }
+      console.log(chalk.green(`  \u2713 ${repo}`) + chalk.dim(` \u2192 ${branchName}`));
+      successfulRepos.push(repo);
+    } catch (error) {
+      console.log(chalk.red(`  \u2717 ${repo}`) + chalk.dim(` - ${error.message}`));
     }
   }
   if (successfulRepos.length === 0) {
-    p.log.error("No worktrees created");
+    console.error(chalk.red("No worktrees created"));
     process.exit(1);
   }
-  const setupSpinner = p.spinner();
-  setupSpinner.start("Running setup scripts (parallel)...");
-  const setupResults = await Promise.all(
-    successfulRepos.map(async (repo) => {
+  if (options.setup !== false) {
+    console.log(chalk.dim("Running setup scripts..."));
+    for (const repo of successfulRepos) {
       const repoConfig = config.repos[repo];
-      if (!repoConfig?.setup_script) {
-        return { repo, success: true, message: "no setup script" };
-      }
+      if (!repoConfig?.setup_script) continue;
       const worktreeDir = join3(workspaceDir, repo);
       const shellWrapper = config.services.shell_wrapper || "";
       const command = shellWrapper ? `${shellWrapper} ${repoConfig.setup_script}` : repoConfig.setup_script;
       try {
-        await execa("bash", ["-l", "-c", `cd '${worktreeDir}' && ${command}`], {
+        execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
           cwd: worktreeDir,
+          stdio: "inherit",
           timeout: 6e5
           // 10 minute timeout
         });
-        return { repo, success: true, message: "complete" };
+        console.log(chalk.green(`  \u2713 ${repo} setup complete`));
       } catch (error) {
-        return { repo, success: false, message: error.shortMessage || error.message };
+        console.log(chalk.yellow(`  \u26A0 ${repo} setup failed`));
       }
-    })
-  );
-  setupSpinner.stop("Setup scripts completed");
-  for (const result of setupResults) {
-    if (result.success) {
-      p.log.success(`${result.repo} \u2192 setup ${result.message}`);
-    } else {
-      p.log.warn(`${result.repo} \u2192 setup failed: ${result.message}`);
     }
   }
   let dbPort;
   let dbContainer;
+  const workspaceIndex = getWorkspaceIndex(name);
   if (config.database.enabled) {
-    const dbSpinner = p.spinner();
-    dbSpinner.start("Starting database...");
-    const workspaceIndex2 = getWorkspaceIndex(name);
-    dbPort = config.database.base_port + workspaceIndex2;
+    console.log(chalk.dim("Starting database..."));
+    dbPort = config.database.base_port + workspaceIndex;
     dbContainer = `hyve-db-${name}`;
+    const projectRoot2 = getProjectRoot();
     try {
       try {
-        await execa("docker", ["rm", "-f", dbContainer]);
+        execSync(`docker rm -f ${dbContainer}`, { stdio: "ignore" });
       } catch {
       }
-      await execa("docker", [
-        "run",
-        "-d",
-        "--name",
-        dbContainer,
-        "-p",
-        `${dbPort}:5432`,
-        "-e",
-        `POSTGRES_USER=${config.database.user}`,
-        "-e",
-        `POSTGRES_PASSWORD=${config.database.password}`,
-        "-e",
-        `POSTGRES_DB=${config.database.name}`,
-        config.database.image || "postgres:15"
-      ]);
-      await new Promise((resolve) => setTimeout(resolve, 3e3));
-      const snapshotName = options.snapshot;
-      const snapshotsDir = join3(projectRoot, ".snapshots");
-      const snapshotPath = snapshotName ? join3(snapshotsDir, `${snapshotName}.dump`) : null;
-      if (snapshotPath && existsSync3(snapshotPath)) {
-        dbSpinner.message(`Restoring from snapshot: ${snapshotName}...`);
-        await execa("bash", [
-          "-c",
-          `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${snapshotPath}" 2>&1 | grep -v "WARNING:" || true`
-        ]);
-      } else if (snapshotName) {
-        const defaultSnapshot = join3(snapshotsDir, "default.dump");
-        if (existsSync3(defaultSnapshot)) {
-          dbSpinner.message("Restoring from default snapshot...");
-          await execa("bash", [
-            "-c",
-            `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`
-          ]);
-        } else {
-          dbSpinner.message("No snapshot found, cloning from source...");
-          await execa("bash", [
-            "-c",
-            `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} -U ${config.database.user} ${config.database.name} | PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} -U ${config.database.user} ${config.database.name}`
-          ]);
-        }
+      execSync(
+        `docker run -d --name ${dbContainer} -p ${dbPort}:5432 -e POSTGRES_USER=${config.database.user} -e POSTGRES_PASSWORD=${config.database.password} -e POSTGRES_DB=${config.database.name} postgres:15`,
+        { stdio: "ignore" }
+      );
+      console.log(chalk.dim("  Waiting for database to be ready..."));
+      execSync("sleep 3");
+      const snapshotsDir = join3(projectRoot2, ".snapshots");
+      const defaultSnapshot = join3(snapshotsDir, "default.dump");
+      if (existsSync3(defaultSnapshot)) {
+        console.log(chalk.dim("  Restoring from default snapshot..."));
+        execSync(
+          `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`,
+          { stdio: "ignore" }
+        );
       } else {
-        const defaultSnapshot = join3(snapshotsDir, "default.dump");
-        if (existsSync3(defaultSnapshot)) {
-          dbSpinner.message("Restoring from default snapshot...");
-          await execa("bash", [
-            "-c",
-            `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`
-          ]);
-        } else {
-          dbSpinner.message("Cloning database from source...");
-          await execa("bash", [
-            "-c",
-            `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} -U ${config.database.user} ${config.database.name} | PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} -U ${config.database.user} ${config.database.name}`
-          ]);
-        }
+        console.log(chalk.dim("  Cloning database from source..."));
+        execSync(
+          `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} -U ${config.database.user} ${config.database.name} | PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} -U ${config.database.user} ${config.database.name}`,
+          { stdio: "ignore" }
+        );
       }
-      dbSpinner.stop("Database ready");
-      p.log.success(`Database running on port ${dbPort}`);
+      console.log(chalk.green(`  \u2713 Database ready on port ${dbPort}`));
     } catch (error) {
-      dbSpinner.stop("Database setup failed");
-      p.log.warn(`Database: ${error.message}`);
+      console.log(chalk.yellow(`  \u26A0 Database setup failed: ${error.message}`));
     }
   }
-  const envSpinner = p.spinner();
-  envSpinner.start("Generating .env files...");
-  const workspaceIndex = getWorkspaceIndex(name);
+  console.log(chalk.dim("Generating .env files..."));
   for (const repo of successfulRepos) {
     const worktreeDir = join3(workspaceDir, repo);
     const mainRepoPath = getRepoPath(repo);
@@ -397,16 +350,15 @@ ${envContent}`;
     }
     writeFileSync(envFile, envContent);
   }
-  envSpinner.stop(".env files generated");
   const workspaceConfig = {
     name,
     branch: branchName,
     repos: successfulRepos,
-    database: {
-      enabled: config.database.enabled,
+    database: dbPort ? {
+      enabled: true,
       port: dbPort,
       container: dbContainer
-    },
+    } : { enabled: false },
     created: (/* @__PURE__ */ new Date()).toISOString(),
     status: "active"
   };
@@ -414,7 +366,50 @@ ${envContent}`;
     join3(workspaceDir, ".hyve-workspace.json"),
     JSON.stringify(workspaceConfig, null, 2)
   );
-  p.outro(chalk.green.bold("Workspace Ready!"));
+  const projectRoot = getProjectRoot();
+  const vscodeWorkspaceFiles = [
+    join3(projectRoot, "code-workspace.code-workspace"),
+    join3(projectRoot, ".code-workspace"),
+    join3(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`)
+  ];
+  for (const vscodeFile of vscodeWorkspaceFiles) {
+    if (existsSync3(vscodeFile)) {
+      try {
+        const vscodeContent = JSON.parse(readFileSync3(vscodeFile, "utf-8"));
+        if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
+          const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
+          let added = false;
+          for (const repo of successfulRepos) {
+            const folderPath = `${workspaceRelPath}/${repo}`;
+            const folderName = `[${name}] ${repo}`;
+            const exists = vscodeContent.folders.some(
+              (f) => f.path === folderPath || f.name === folderName
+            );
+            if (!exists) {
+              const dotIndex = vscodeContent.folders.findIndex(
+                (f) => f.path === "."
+              );
+              const insertIndex = dotIndex !== -1 ? dotIndex : vscodeContent.folders.length;
+              vscodeContent.folders.splice(insertIndex, 0, {
+                name: folderName,
+                path: folderPath
+              });
+              added = true;
+            }
+          }
+          if (added) {
+            writeFileSync(vscodeFile, JSON.stringify(vscodeContent, null, 2) + "\n");
+            console.log(chalk.green(`  \u2713 Added to VS Code workspace`));
+          }
+        }
+      } catch (error) {
+        console.log(chalk.yellow(`  \u26A0 Could not update VS Code workspace: ${error.message}`));
+      }
+      break;
+    }
+  }
+  console.log();
+  console.log(chalk.green.bold("\u2713 Workspace Ready!"));
   console.log();
   console.log(chalk.dim("  Location:"), workspaceDir);
   console.log(chalk.dim("  Branch:  "), branchName);
@@ -431,8 +426,8 @@ ${envContent}`;
 import { Command as Command2 } from "commander";
 import * as p2 from "@clack/prompts";
 import chalk2 from "chalk";
-import { execa as execa2 } from "execa";
-import { rmSync, existsSync as existsSync4 } from "fs";
+import { execSync as execSync2 } from "child_process";
+import { rmSync, existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "fs";
 import { join as join4 } from "path";
 var cleanupCommand = new Command2("cleanup").description("Remove a workspace").argument("[name]", "Workspace name").option("-f, --force", "Skip confirmation").action(async (name, options) => {
   const workspaces = listWorkspaces();
@@ -460,47 +455,76 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
   if (!options.force) {
     const confirmed = await p2.confirm({
       message: `Remove workspace "${chalk2.bold(name)}"?
-  This will delete worktrees and database but preserve git branches.`
+  This will delete worktrees but preserve git branches.`
     });
     if (p2.isCancel(confirmed) || !confirmed) {
       p2.cancel("Cancelled");
       process.exit(0);
     }
   }
-  p2.intro(chalk2.cyan(`Removing workspace: ${chalk2.bold(name)}`));
+  console.log(chalk2.cyan(`Removing workspace: ${chalk2.bold(name)}`));
   if (config?.database?.container) {
-    const dbSpinner = p2.spinner();
-    dbSpinner.start("Removing database...");
     try {
-      await execa2("docker", ["rm", "-f", config.database.container]);
-      dbSpinner.stop("Database removed");
+      execSync2(`docker rm -f ${config.database.container}`, { stdio: "ignore" });
+      console.log(chalk2.green("  \u2713 Database removed"));
     } catch {
-      dbSpinner.stop("Database not found");
     }
   }
   const repos = config?.repos || [];
-  if (repos.length > 0) {
-    const worktreeSpinner = p2.spinner();
-    worktreeSpinner.start("Removing worktrees...");
-    await Promise.all(
-      repos.map(async (repo) => {
-        try {
-          const mainRepoPath = getRepoPath(repo);
-          const worktreeDir = join4(workspaceDir, repo);
-          if (existsSync4(mainRepoPath)) {
-            await execa2("git", ["worktree", "remove", worktreeDir, "--force"], {
-              cwd: mainRepoPath
-            });
-            await execa2("git", ["worktree", "prune"], { cwd: mainRepoPath });
+  for (const repo of repos) {
+    try {
+      const mainRepoPath = getRepoPath(repo);
+      const worktreeDir = join4(workspaceDir, repo);
+      if (existsSync4(mainRepoPath)) {
+        execSync2(`git worktree remove "${worktreeDir}" --force 2>/dev/null || true`, {
+          cwd: mainRepoPath,
+          stdio: "ignore"
+        });
+      }
+    } catch {
+    }
+  }
+  for (const repo of repos) {
+    try {
+      const mainRepoPath = getRepoPath(repo);
+      if (existsSync4(mainRepoPath)) {
+        execSync2("git worktree prune", { cwd: mainRepoPath, stdio: "ignore" });
+      }
+    } catch {
+    }
+  }
+  const projectRoot = getProjectRoot();
+  const vscodeWorkspaceFiles = [
+    join4(projectRoot, "code-workspace.code-workspace"),
+    join4(projectRoot, ".code-workspace"),
+    join4(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`)
+  ];
+  for (const vscodeFile of vscodeWorkspaceFiles) {
+    if (existsSync4(vscodeFile)) {
+      try {
+        const vscodeContent = JSON.parse(readFileSync4(vscodeFile, "utf-8"));
+        if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
+          const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
+          const originalLength = vscodeContent.folders.length;
+          vscodeContent.folders = vscodeContent.folders.filter(
+            (f) => {
+              if (f.path?.startsWith(workspaceRelPath + "/")) return false;
+              if (f.name?.startsWith(`[${name}]`)) return false;
+              return true;
+            }
+          );
+          if (vscodeContent.folders.length < originalLength) {
+            writeFileSync2(vscodeFile, JSON.stringify(vscodeContent, null, 2) + "\n");
+            console.log(chalk2.green("  \u2713 Removed from VS Code workspace"));
           }
-        } catch {
         }
-      })
-    );
-    worktreeSpinner.stop("Worktrees removed");
+      } catch {
+      }
+      break;
+    }
   }
   rmSync(workspaceDir, { recursive: true, force: true });
-  p2.outro(chalk2.green(`Workspace "${name}" removed`));
+  console.log(chalk2.green(`\u2713 Workspace "${name}" removed`));
 });
 
 // src/commands/list.ts
@@ -535,7 +559,7 @@ var listCommand = new Command3("list").alias("ls").description("List all workspa
 import { Command as Command4 } from "commander";
 import * as p3 from "@clack/prompts";
 import chalk4 from "chalk";
-import { execa as execa3 } from "execa";
+import { execa } from "execa";
 var statusCommand = new Command4("status").description("Show workspace status").argument("[name]", "Workspace name").action(async (name) => {
   const workspaces = listWorkspaces();
   if (workspaces.length === 0) {
@@ -572,7 +596,7 @@ var statusCommand = new Command4("status").description("Show workspace status").
   if (wsConfig?.database?.container) {
     let dbStatus = chalk4.red("stopped");
     try {
-      const { stdout } = await execa3("docker", [
+      const { stdout } = await execa("docker", [
         "inspect",
         "-f",
         "{{.State.Running}}",
@@ -599,7 +623,7 @@ var statusCommand = new Command4("status").description("Show workspace status").
     );
     let status = chalk4.dim("stopped");
     try {
-      await execa3("lsof", ["-i", `:${port}`]);
+      await execa("lsof", ["-i", `:${port}`]);
       status = chalk4.green("running");
     } catch {
     }
@@ -612,9 +636,9 @@ var statusCommand = new Command4("status").description("Show workspace status").
 import { Command as Command5 } from "commander";
 import * as p4 from "@clack/prompts";
 import chalk5 from "chalk";
-import { execa as execa4 } from "execa";
+import { execa as execa2 } from "execa";
 import { spawn } from "child_process";
-import { existsSync as existsSync5, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2, openSync } from "fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync2, writeFileSync as writeFileSync3, openSync, watch } from "fs";
 import { join as join5 } from "path";
 var startupPhase = true;
 var startupPids = [];
@@ -638,7 +662,7 @@ function setupSignalHandlers() {
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 }
-var runCommand = new Command5("run").description("Start all services for a workspace").argument("[name]", "Workspace name").argument("[services...]", "Specific services to run").action(async (name, services) => {
+var runCommand = new Command5("run").description("Start all services for a workspace").argument("[name]", "Workspace name").argument("[services...]", "Specific services to run").option("--watch", "Watch for file changes and re-run pre_run on dependent services").action(async (name, services, options) => {
   setupSignalHandlers();
   const workspaces = listWorkspaces();
   if (workspaces.length === 0) {
@@ -672,14 +696,14 @@ var runCommand = new Command5("run").description("Start all services for a works
     const dbSpinner = p4.spinner();
     dbSpinner.start("Starting database...");
     try {
-      const { stdout } = await execa4("docker", [
+      const { stdout } = await execa2("docker", [
         "inspect",
         "-f",
         "{{.State.Running}}",
         wsConfig.database.container
       ]);
       if (stdout.trim() !== "true") {
-        await execa4("docker", ["start", wsConfig.database.container]);
+        await execa2("docker", ["start", wsConfig.database.container]);
       }
       dbSpinner.stop("Database running");
     } catch {
@@ -706,11 +730,11 @@ var runCommand = new Command5("run").description("Start all services for a works
   let killedCount = 0;
   for (const port of portsToClean) {
     try {
-      const { stdout } = await execa4("lsof", ["-ti", `:${port}`]);
+      const { stdout } = await execa2("lsof", ["-ti", `:${port}`]);
       const pids = stdout.trim().split("\n").filter(Boolean);
       for (const pid of pids) {
         try {
-          await execa4("kill", ["-9", pid]);
+          await execa2("kill", ["-9", pid]);
           killedCount++;
         } catch {
         }
@@ -785,12 +809,16 @@ var runCommand = new Command5("run").description("Start all services for a works
     });
     if (!p4.isCancel(shouldOpen) && shouldOpen) {
       for (const url of openUrls) {
-        await execa4("open", [url]);
+        await execa2("open", [url]);
       }
     }
   }
   startupPhase = false;
-  process.exit(0);
+  if (options.watch) {
+    await startFileWatcher(name, config, workspaceDir, runningServices);
+  } else {
+    process.exit(0);
+  }
 });
 async function waitForHealth(url, timeoutMs) {
   const start = Date.now();
@@ -867,7 +895,7 @@ async function startService(repo, ctx) {
   const logFile = join5(logsDir, `${repo}.log`);
   const pidFile = join5(logsDir, `${repo}.pid`);
   const shellWrapper = config.services.shell_wrapper || "";
-  const spinner5 = p4.spinner();
+  const spinner2 = p4.spinner();
   const deps = serviceConfig.depends_on || [];
   if (deps.length > 0) {
     for (const dep of deps) {
@@ -875,18 +903,18 @@ async function startService(repo, ctx) {
       const depPort = runningServices.get(dep);
       if (depConfig?.health_check && depPort) {
         const healthUrl = depConfig.health_check.replace("${port}", String(depPort));
-        spinner5.start(`Waiting for ${chalk5.cyan(dep)} to be healthy...`);
+        spinner2.start(`Waiting for ${chalk5.cyan(dep)} to be healthy...`);
         const healthy = await waitForHealth(healthUrl, 3e4);
         if (healthy) {
-          spinner5.stop(`${dep} is healthy`);
+          spinner2.stop(`${dep} is healthy`);
         } else {
-          spinner5.stop(`${dep} health check timed out (continuing anyway)`);
+          spinner2.stop(`${dep} health check timed out (continuing anyway)`);
         }
       }
     }
   }
   if (serviceConfig.pre_run) {
-    spinner5.start(`Running pre-run for ${chalk5.cyan(repo)}...`);
+    spinner2.start(`Running pre-run for ${chalk5.cyan(repo)}...`);
     try {
       let preRunCommand = serviceConfig.pre_run;
       const serverPort = runningServices.get("server");
@@ -894,7 +922,7 @@ async function startService(repo, ctx) {
         preRunCommand = preRunCommand.replace(/\$\{server_port\}/g, String(serverPort));
       }
       const preRunCmd = shellWrapper ? `${shellWrapper} ${preRunCommand}` : preRunCommand;
-      await execa4("bash", ["-l", "-c", `cd '${serviceDir}' && ${preRunCmd}`], {
+      await execa2("bash", ["-l", "-c", `cd '${serviceDir}' && ${preRunCmd}`], {
         cwd: serviceDir,
         timeout: 12e4,
         // 2 minute timeout for pre-run
@@ -903,12 +931,12 @@ async function startService(repo, ctx) {
           PORT: String(port)
         }
       });
-      spinner5.stop(`Pre-run complete for ${repo}`);
+      spinner2.stop(`Pre-run complete for ${repo}`);
     } catch (error) {
-      spinner5.stop(`Pre-run failed for ${repo}: ${error.shortMessage || error.message}`);
+      spinner2.stop(`Pre-run failed for ${repo}: ${error.shortMessage || error.message}`);
     }
   }
-  spinner5.start(`Starting ${chalk5.cyan(repo)} on port ${chalk5.yellow(port)}...`);
+  spinner2.start(`Starting ${chalk5.cyan(repo)} on port ${chalk5.yellow(port)}...`);
   try {
     let devCommand = serviceConfig.dev_command || "pnpm dev";
     devCommand = devCommand.replace(/\$\{port\}/g, String(port));
@@ -924,30 +952,190 @@ async function startService(repo, ctx) {
     });
     child.unref();
     if (child.pid) {
-      writeFileSync2(pidFile, String(child.pid));
+      writeFileSync3(pidFile, String(child.pid));
       startupPids.push(child.pid);
     }
     await new Promise((resolve) => setTimeout(resolve, 2e3));
     try {
       process.kill(child.pid, 0);
-      spinner5.stop(`${chalk5.cyan(repo)} started (PID ${child.pid})`);
+      spinner2.stop(`${chalk5.cyan(repo)} started (PID ${child.pid})`);
       return { name: repo, port, pid: child.pid };
     } catch {
-      spinner5.stop(`${chalk5.red(repo)} failed to start`);
+      spinner2.stop(`${chalk5.red(repo)} failed to start`);
       return { name: repo, port, error: "Process exited" };
     }
   } catch (error) {
-    spinner5.stop(`${chalk5.red(repo)} failed: ${error.message}`);
+    spinner2.stop(`${chalk5.red(repo)} failed: ${error.message}`);
     return { name: repo, port, error: error.message };
   }
+}
+async function startFileWatcher(_workspaceName, config, workspaceDir, runningServices) {
+  const serviceConfigs = config.services.definitions;
+  const shellWrapper = config.services.shell_wrapper || "";
+  const triggerServices = [];
+  for (const [name, cfg] of Object.entries(serviceConfigs)) {
+    if (cfg.watch_files && cfg.watch_files.length > 0) {
+      const serviceDir = join5(workspaceDir, name);
+      if (existsSync5(serviceDir)) {
+        triggerServices.push({
+          name,
+          watchFiles: cfg.watch_files,
+          dir: serviceDir
+        });
+      }
+    }
+  }
+  if (triggerServices.length === 0) {
+    p4.log.warn("No services have watch_files configured. Nothing to watch.");
+    process.exit(0);
+  }
+  const dependentServices = [];
+  for (const [name, cfg] of Object.entries(serviceConfigs)) {
+    if (cfg.pre_run_deps && cfg.pre_run_deps.length > 0 && cfg.pre_run) {
+      const serviceDir = join5(workspaceDir, name);
+      if (existsSync5(serviceDir)) {
+        dependentServices.push({
+          name,
+          preRun: cfg.pre_run,
+          preRunDeps: cfg.pre_run_deps,
+          dir: serviceDir
+        });
+      }
+    }
+  }
+  if (dependentServices.length === 0) {
+    p4.log.warn("No services have pre_run_deps configured. Nothing to trigger.");
+    process.exit(0);
+  }
+  console.log();
+  console.log(chalk5.dim("\u2500".repeat(50)));
+  console.log();
+  console.log(chalk5.bold.cyan("File Watcher Active"));
+  console.log();
+  for (const trigger of triggerServices) {
+    console.log(`  ${chalk5.cyan(trigger.name)} watching:`);
+    for (const pattern of trigger.watchFiles) {
+      console.log(`    - ${pattern}`);
+    }
+  }
+  console.log();
+  console.log(chalk5.dim("  Will trigger pre_run on:"));
+  for (const dep of dependentServices) {
+    console.log(`    - ${dep.name} (deps: ${dep.preRunDeps.join(", ")})`);
+  }
+  console.log();
+  console.log(chalk5.dim("  Press Ctrl+C to stop watching"));
+  console.log();
+  let lastRunTime = 0;
+  const debounceMs = 2e3;
+  let pendingRun = null;
+  async function runPreRunForTrigger(triggerName, changedFile) {
+    const now = Date.now();
+    if (now - lastRunTime < debounceMs) {
+      if (pendingRun) clearTimeout(pendingRun);
+      pendingRun = setTimeout(() => runPreRunForTrigger(triggerName, changedFile), debounceMs);
+      return;
+    }
+    lastRunTime = now;
+    const timestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString();
+    console.log();
+    console.log(chalk5.yellow(`[${timestamp}]`), `Change in ${chalk5.cyan(triggerName)}:`, changedFile);
+    const toRun = dependentServices.filter((dep) => dep.preRunDeps.includes(triggerName));
+    if (toRun.length === 0) {
+      console.log(chalk5.dim("  No services depend on this trigger"));
+      return;
+    }
+    const triggerConfig = serviceConfigs[triggerName];
+    const triggerPort = runningServices.get(triggerName);
+    if (triggerConfig?.health_check && triggerPort) {
+      const healthUrl = triggerConfig.health_check.replace("${port}", String(triggerPort));
+      console.log(`  ${chalk5.dim("Waiting for")} ${triggerName} ${chalk5.dim("to be healthy...")}`);
+      const maxWaitMs = 3e4;
+      const startTime = Date.now();
+      let healthy = false;
+      while (Date.now() - startTime < maxWaitMs) {
+        try {
+          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(2e3) });
+          if (response.ok) {
+            healthy = true;
+            break;
+          }
+        } catch {
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1e3));
+      }
+      if (!healthy) {
+        console.log(`  ${chalk5.yellow("\u26A0")} ${triggerName} health check timed out, proceeding anyway...`);
+      } else {
+        console.log(`  ${chalk5.green("\u2713")} ${triggerName} is healthy`);
+      }
+    }
+    for (const dep of toRun) {
+      console.log(`  ${chalk5.cyan("\u2192")} Running pre_run for ${chalk5.bold(dep.name)}...`);
+      try {
+        let preRunCmd = dep.preRun;
+        const serverPort = runningServices.get("server");
+        if (serverPort) {
+          preRunCmd = preRunCmd.replace(/\$\{server_port\}/g, String(serverPort));
+        }
+        const fullCmd = shellWrapper ? `${shellWrapper} ${preRunCmd}` : preRunCmd;
+        await execa2("bash", ["-l", "-c", `cd '${dep.dir}' && ${fullCmd}`], {
+          cwd: dep.dir,
+          timeout: 12e4,
+          env: process.env
+        });
+        console.log(`  ${chalk5.green("\u2713")} ${dep.name} complete`);
+      } catch (error) {
+        console.log(`  ${chalk5.red("\u2717")} ${dep.name} failed:`, error.shortMessage || error.message);
+      }
+    }
+    console.log();
+    console.log(chalk5.dim(`[${timestamp}] Watching for changes...`));
+  }
+  for (const trigger of triggerServices) {
+    try {
+      const chokidar = await import("chokidar");
+      const watcher = chokidar.watch(trigger.watchFiles, {
+        cwd: trigger.dir,
+        ignoreInitial: true,
+        ignored: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/build/**"]
+      });
+      watcher.on("change", (path) => {
+        runPreRunForTrigger(trigger.name, path);
+      });
+      watcher.on("add", (path) => {
+        runPreRunForTrigger(trigger.name, path);
+      });
+      p4.log.success(`Watching ${trigger.name} with chokidar`);
+    } catch {
+      p4.log.warn(`chokidar not available, using basic fs.watch for ${trigger.name}`);
+      watch(trigger.dir, { recursive: true }, (_eventType, filename) => {
+        if (!filename) return;
+        const matches = trigger.watchFiles.some((pattern) => {
+          if (pattern.includes("**")) {
+            const regex = new RegExp(
+              pattern.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\//g, "\\/")
+            );
+            return regex.test(filename);
+          }
+          return filename.includes(pattern.replace(/\*/g, ""));
+        });
+        if (matches) {
+          runPreRunForTrigger(trigger.name, filename);
+        }
+      });
+    }
+  }
+  await new Promise(() => {
+  });
 }
 
 // src/commands/halt.ts
 import { Command as Command6 } from "commander";
 import * as p5 from "@clack/prompts";
 import chalk6 from "chalk";
-import { execa as execa5 } from "execa";
-import { existsSync as existsSync6, readFileSync as readFileSync4, rmSync as rmSync2 } from "fs";
+import { execSync as execSync3 } from "child_process";
+import { existsSync as existsSync6, readFileSync as readFileSync5, rmSync as rmSync2 } from "fs";
 import { join as join6 } from "path";
 var haltCommand = new Command6("halt").alias("stop").description("Stop all services for a workspace").argument("[name]", "Workspace name").action(async (name) => {
   const workspaces = listWorkspaces();
@@ -973,15 +1161,13 @@ var haltCommand = new Command6("halt").alias("stop").description("Stop all servi
   const wsConfig = getWorkspaceConfig(name);
   const workspaceDir = getWorkspaceDir(name);
   const logsDir = join6(workspaceDir, ".hyve", "logs");
-  p5.intro(chalk6.cyan(`Stopping services for ${chalk6.bold(name)}`));
+  console.log(chalk6.cyan(`Stopping services for ${chalk6.bold(name)}`));
   const repos = wsConfig?.repos || [];
   for (const repo of repos) {
     const pidFile = join6(logsDir, `${repo}.pid`);
     if (existsSync6(pidFile)) {
-      const spinner5 = p5.spinner();
-      spinner5.start(`Stopping ${repo}...`);
       try {
-        const pid = parseInt(readFileSync4(pidFile, "utf-8").trim());
+        const pid = parseInt(readFileSync5(pidFile, "utf-8").trim());
         try {
           process.kill(-pid, "SIGTERM");
         } catch {
@@ -991,35 +1177,25 @@ var haltCommand = new Command6("halt").alias("stop").description("Stop all servi
           }
         }
         try {
-          await execa5("pkill", ["-P", String(pid)]);
+          execSync3(`pkill -P ${pid}`, { stdio: "ignore" });
         } catch {
         }
         rmSync2(pidFile);
-        spinner5.stop(`${repo} stopped`);
-      } catch (error) {
-        spinner5.stop(`${repo} already stopped`);
+        console.log(chalk6.green(`  \u2713 ${repo} stopped`));
+      } catch {
         rmSync2(pidFile, { force: true });
+        console.log(chalk6.dim(`  - ${repo} already stopped`));
       }
     }
   }
-  if (wsConfig?.database?.container) {
-    const dbSpinner = p5.spinner();
-    dbSpinner.start("Stopping database...");
-    try {
-      await execa5("docker", ["stop", wsConfig.database.container]);
-      dbSpinner.stop("Database stopped");
-    } catch {
-      dbSpinner.stop("Database not running");
-    }
-  }
-  p5.outro(chalk6.green("All services stopped"));
+  console.log(chalk6.green("\u2713 All services stopped"));
 });
 
 // src/commands/db.ts
 import { Command as Command7 } from "commander";
 import * as p6 from "@clack/prompts";
 import chalk7 from "chalk";
-import { execa as execa6 } from "execa";
+import { spawnSync } from "child_process";
 var dbCommand = new Command7("db").description("Connect to workspace database").argument("[name]", "Workspace name").action(async (name) => {
   const workspaces = listWorkspaces();
   if (workspaces.length === 0) {
@@ -1049,7 +1225,7 @@ var dbCommand = new Command7("db").description("Connect to workspace database").
   }
   console.log(chalk7.dim(`Connecting to database on port ${wsConfig.database.port}...`));
   console.log();
-  await execa6(
+  spawnSync(
     "psql",
     [
       "-h",

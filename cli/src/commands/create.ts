@@ -1,13 +1,12 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { execa } from "execa";
+import { execSync } from "child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, copyFileSync } from "fs";
 import { join } from "path";
 import {
   loadConfig,
   getProjectRoot,
-  getWorkspacesDir,
   getWorkspaceDir,
   getRepoPath,
 } from "../config.js";
@@ -24,11 +23,9 @@ export const createCommand = new Command("create")
   .argument("[repos...]", "Additional repos to include")
   .option("--from <branch>", "Create from existing branch")
   .option("--existing", "Select from existing branches")
-  .option("--snapshot <name>", "Restore database from snapshot instead of cloning")
-  .option("--no-db", "Skip database creation")
+  .option("--no-setup", "Skip running setup scripts")
   .action(async (name: string | undefined, repos: string[], options) => {
     const config = loadConfig();
-    const projectRoot = getProjectRoot();
 
     // Interactive name selection if not provided
     if (!name) {
@@ -53,11 +50,11 @@ export const createCommand = new Command("create")
     const originalName = name;
     name = sanitizeBranchName(name);
     if (originalName !== name) {
-      p.log.info(`Sanitized: ${chalk.dim(originalName)} → ${chalk.cyan(name)}`);
+      console.log(chalk.dim(`Sanitized: ${originalName} → ${name}`));
     }
 
     if (workspaceExists(name)) {
-      p.log.error(`Workspace already exists: ${name}`);
+      console.error(chalk.red(`Workspace already exists: ${name}`));
       process.exit(1);
     }
 
@@ -65,117 +62,107 @@ export const createCommand = new Command("create")
     const allRepos = [...new Set([...config.required_repos, ...repos])];
 
     if (allRepos.length === 0) {
-      p.log.error("No repos specified and no required_repos configured");
+      console.error(chalk.red("No repos specified and no required_repos configured"));
       process.exit(1);
     }
 
     const branchName = `${config.branches.prefix}${name}`;
     const workspaceDir = getWorkspaceDir(name);
 
-    p.intro(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
+    console.log(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
 
     // Create workspace directory
     mkdirSync(workspaceDir, { recursive: true });
 
-    // Create worktrees in parallel
-    const worktreeSpinner = p.spinner();
-    worktreeSpinner.start("Creating git worktrees...");
+    // Create worktrees - use sync for predictable output
+    console.log(chalk.dim("Creating git worktrees..."));
+    const successfulRepos: string[] = [];
 
-    const worktreeResults = await Promise.all(
-      allRepos.map(async (repo) => {
+    for (const repo of allRepos) {
+      try {
+        const repoPath = getRepoPath(repo);
+        const worktreeDir = join(workspaceDir, repo);
+
+        // Get base branch
+        let baseBranch = config.branches.base;
         try {
-          const repoPath = getRepoPath(repo);
-          const worktreeDir = join(workspaceDir, repo);
-
-          // Get base branch
-          let baseBranch = config.branches.base;
-          try {
-            const { stdout } = await execa("git", ["symbolic-ref", "refs/remotes/origin/HEAD"], {
-              cwd: repoPath,
-            });
-            baseBranch = stdout.replace("refs/remotes/origin/", "").trim();
-          } catch {
-            // Try common defaults
-            for (const branch of ["main", "master"]) {
-              try {
-                await execa("git", ["show-ref", "--verify", `refs/heads/${branch}`], {
-                  cwd: repoPath,
-                });
-                baseBranch = branch;
-                break;
-              } catch {}
-            }
+          const stdout = execSync("git symbolic-ref refs/remotes/origin/HEAD", {
+            cwd: repoPath,
+            encoding: "utf-8",
+            stdio: ["pipe", "pipe", "ignore"],
+          });
+          baseBranch = stdout.replace("refs/remotes/origin/", "").trim();
+        } catch {
+          // Try common defaults
+          for (const branch of ["main", "master"]) {
+            try {
+              execSync(`git show-ref --verify refs/heads/${branch}`, {
+                cwd: repoPath,
+                stdio: "ignore",
+              });
+              baseBranch = branch;
+              break;
+            } catch {}
           }
+        }
 
-          // Pull latest
-          try {
-            await execa("git", ["fetch", "origin", baseBranch], { cwd: repoPath });
-          } catch {}
+        // Fetch latest (silent)
+        try {
+          execSync(`git fetch origin ${baseBranch}`, { cwd: repoPath, stdio: "ignore" });
+        } catch {}
 
-          // Check if branch exists
-          let branchExists = false;
+        // Check if branch exists
+        let branchExists = false;
+        try {
+          execSync(`git show-ref --verify refs/heads/${branchName}`, {
+            cwd: repoPath,
+            stdio: "ignore",
+          });
+          branchExists = true;
+        } catch {}
+
+        if (!branchExists) {
           try {
-            await execa("git", ["show-ref", "--verify", `refs/heads/${branchName}`], {
+            execSync(`git show-ref --verify refs/remotes/origin/${branchName}`, {
               cwd: repoPath,
+              stdio: "ignore",
             });
             branchExists = true;
           } catch {}
-
-          if (!branchExists) {
-            try {
-              await execa("git", ["show-ref", "--verify", `refs/remotes/origin/${branchName}`], {
-                cwd: repoPath,
-              });
-              branchExists = true;
-            } catch {}
-          }
-
-          // Create worktree
-          if (branchExists || options.from) {
-            await execa("git", ["worktree", "add", worktreeDir, branchName], {
-              cwd: repoPath,
-            });
-          } else {
-            await execa("git", ["worktree", "add", "-b", branchName, worktreeDir, baseBranch], {
-              cwd: repoPath,
-            });
-          }
-
-          return { repo, success: true, message: branchExists ? "existing" : `new from ${baseBranch}` };
-        } catch (error: any) {
-          return { repo, success: false, message: error.message };
         }
-      })
-    );
 
-    worktreeSpinner.stop("Git worktrees created");
+        // Create worktree
+        if (branchExists || options.from) {
+          execSync(`git worktree add "${worktreeDir}" "${branchName}"`, {
+            cwd: repoPath,
+            stdio: "ignore",
+          });
+        } else {
+          execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}"`, {
+            cwd: repoPath,
+            stdio: "ignore",
+          });
+        }
 
-    // Log results
-    const successfulRepos: string[] = [];
-    for (const result of worktreeResults) {
-      if (result.success) {
-        p.log.success(`${result.repo} → ${branchName} (${result.message})`);
-        successfulRepos.push(result.repo);
-      } else {
-        p.log.error(`${result.repo}: ${result.message}`);
+        console.log(chalk.green(`  ✓ ${repo}`) + chalk.dim(` → ${branchName}`));
+        successfulRepos.push(repo);
+      } catch (error: any) {
+        console.log(chalk.red(`  ✗ ${repo}`) + chalk.dim(` - ${error.message}`));
       }
     }
 
     if (successfulRepos.length === 0) {
-      p.log.error("No worktrees created");
+      console.error(chalk.red("No worktrees created"));
       process.exit(1);
     }
 
-    // Run setup scripts in parallel
-    const setupSpinner = p.spinner();
-    setupSpinner.start("Running setup scripts (parallel)...");
+    // Run setup scripts if not skipped
+    if (options.setup !== false) {
+      console.log(chalk.dim("Running setup scripts..."));
 
-    const setupResults = await Promise.all(
-      successfulRepos.map(async (repo) => {
+      for (const repo of successfulRepos) {
         const repoConfig = config.repos[repo];
-        if (!repoConfig?.setup_script) {
-          return { repo, success: true, message: "no setup script" };
-        }
+        if (!repoConfig?.setup_script) continue;
 
         const worktreeDir = join(workspaceDir, repo);
         const shellWrapper = config.services.shell_wrapper || "";
@@ -184,123 +171,82 @@ export const createCommand = new Command("create")
           : repoConfig.setup_script;
 
         try {
-          await execa("bash", ["-l", "-c", `cd '${worktreeDir}' && ${command}`], {
+          execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
             cwd: worktreeDir,
+            stdio: "inherit",
             timeout: 600000, // 10 minute timeout
           });
-          return { repo, success: true, message: "complete" };
+          console.log(chalk.green(`  ✓ ${repo} setup complete`));
         } catch (error: any) {
-          return { repo, success: false, message: error.shortMessage || error.message };
+          console.log(chalk.yellow(`  ⚠ ${repo} setup failed`));
         }
-      })
-    );
-
-    setupSpinner.stop("Setup scripts completed");
-
-    for (const result of setupResults) {
-      if (result.success) {
-        p.log.success(`${result.repo} → setup ${result.message}`);
-      } else {
-        p.log.warn(`${result.repo} → setup failed: ${result.message}`);
       }
     }
 
-    // Start database if enabled
+    // Start database container if enabled
     let dbPort: number | undefined;
     let dbContainer: string | undefined;
+    const workspaceIndex = getWorkspaceIndex(name);
 
     if (config.database.enabled) {
-      const dbSpinner = p.spinner();
-      dbSpinner.start("Starting database...");
+      console.log(chalk.dim("Starting database..."));
 
-      const workspaceIndex = getWorkspaceIndex(name);
       dbPort = config.database.base_port + workspaceIndex;
       dbContainer = `hyve-db-${name}`;
+      const projectRoot = getProjectRoot();
 
       try {
-        // Check if container exists
+        // Remove existing container if any
         try {
-          await execa("docker", ["rm", "-f", dbContainer]);
+          execSync(`docker rm -f ${dbContainer}`, { stdio: "ignore" });
         } catch {}
 
         // Start new container
-        await execa("docker", [
-          "run",
-          "-d",
-          "--name",
-          dbContainer,
-          "-p",
-          `${dbPort}:5432`,
-          "-e",
-          `POSTGRES_USER=${config.database.user}`,
-          "-e",
-          `POSTGRES_PASSWORD=${config.database.password}`,
-          "-e",
-          `POSTGRES_DB=${config.database.name}`,
-          config.database.image || "postgres:15",
-        ]);
+        execSync(
+          `docker run -d --name ${dbContainer} -p ${dbPort}:5432 ` +
+            `-e POSTGRES_USER=${config.database.user} ` +
+            `-e POSTGRES_PASSWORD=${config.database.password} ` +
+            `-e POSTGRES_DB=${config.database.name} ` +
+            `postgres:15`,
+          { stdio: "ignore" }
+        );
 
         // Wait for database to be ready
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        console.log(chalk.dim("  Waiting for database to be ready..."));
+        execSync("sleep 3");
 
-        // Restore from snapshot or clone from source database
-        const snapshotName = options.snapshot;
+        // Check for default snapshot first, fall back to source clone
         const snapshotsDir = join(projectRoot, ".snapshots");
-        const snapshotPath = snapshotName ? join(snapshotsDir, `${snapshotName}.dump`) : null;
+        const defaultSnapshot = join(snapshotsDir, "default.dump");
 
-        if (snapshotPath && existsSync(snapshotPath)) {
-          dbSpinner.message(`Restoring from snapshot: ${snapshotName}...`);
-          await execa("bash", [
-            "-c",
-            `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${snapshotPath}" 2>&1 | grep -v "WARNING:" || true`,
-          ]);
-        } else if (snapshotName) {
-          // Check if default snapshot exists
-          const defaultSnapshot = join(snapshotsDir, "default.dump");
-          if (existsSync(defaultSnapshot)) {
-            dbSpinner.message("Restoring from default snapshot...");
-            await execa("bash", [
-              "-c",
-              `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`,
-            ]);
-          } else {
-            dbSpinner.message("No snapshot found, cloning from source...");
-            await execa("bash", [
-              "-c",
-              `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} -U ${config.database.user} ${config.database.name} | PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} -U ${config.database.user} ${config.database.name}`,
-            ]);
-          }
+        if (existsSync(defaultSnapshot)) {
+          console.log(chalk.dim("  Restoring from default snapshot..."));
+          execSync(
+            `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} ` +
+              `-U ${config.database.user} -d ${config.database.name} --no-owner --no-acl ` +
+              `"${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`,
+            { stdio: "ignore" }
+          );
         } else {
-          // Check for default snapshot first, fall back to source clone
-          const defaultSnapshot = join(snapshotsDir, "default.dump");
-          if (existsSync(defaultSnapshot)) {
-            dbSpinner.message("Restoring from default snapshot...");
-            await execa("bash", [
-              "-c",
-              `PGPASSWORD=${config.database.password} pg_restore -h localhost -p ${dbPort} -U ${config.database.user} -d ${config.database.name} --no-owner --no-acl "${defaultSnapshot}" 2>&1 | grep -v "WARNING:" || true`,
-            ]);
-          } else {
-            dbSpinner.message("Cloning database from source...");
-            await execa("bash", [
-              "-c",
-              `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} -U ${config.database.user} ${config.database.name} | PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} -U ${config.database.user} ${config.database.name}`,
-            ]);
-          }
+          console.log(chalk.dim("  Cloning database from source..."));
+          execSync(
+            `PGPASSWORD=${config.database.password} pg_dump -h localhost -p ${config.database.source_port} ` +
+              `-U ${config.database.user} ${config.database.name} | ` +
+              `PGPASSWORD=${config.database.password} psql -h localhost -p ${dbPort} ` +
+              `-U ${config.database.user} ${config.database.name}`,
+            { stdio: "ignore" }
+          );
         }
 
-        dbSpinner.stop("Database ready");
-        p.log.success(`Database running on port ${dbPort}`);
+        console.log(chalk.green(`  ✓ Database ready on port ${dbPort}`));
       } catch (error: any) {
-        dbSpinner.stop("Database setup failed");
-        p.log.warn(`Database: ${error.message}`);
+        console.log(chalk.yellow(`  ⚠ Database setup failed: ${error.message}`));
       }
     }
 
     // Generate .env files
-    const envSpinner = p.spinner();
-    envSpinner.start("Generating .env files...");
+    console.log(chalk.dim("Generating .env files..."));
 
-    const workspaceIndex = getWorkspaceIndex(name);
     for (const repo of successfulRepos) {
       const worktreeDir = join(workspaceDir, repo);
       const mainRepoPath = getRepoPath(repo);
@@ -320,7 +266,7 @@ export const createCommand = new Command("create")
       // Read and modify
       let envContent = readFileSync(envFile, "utf-8");
 
-      // Replace DATABASE_URL
+      // Replace DATABASE_URL if we have a workspace database
       if (dbPort) {
         const newDbUrl = `postgresql://${config.database.user}:${config.database.password}@localhost:${dbPort}/${config.database.name}`;
         envContent = envContent.replace(/^DATABASE_URL=.*/m, `DATABASE_URL=${newDbUrl}`);
@@ -340,7 +286,6 @@ export const createCommand = new Command("create")
         if (/^PORT=/m.test(envContent)) {
           envContent = envContent.replace(/^PORT=.*/m, `PORT=${newPort}`);
         } else {
-          // Add PORT if not present
           envContent = `PORT=${newPort}\n${envContent}`;
         }
       }
@@ -370,18 +315,18 @@ export const createCommand = new Command("create")
       writeFileSync(envFile, envContent);
     }
 
-    envSpinner.stop(".env files generated");
-
     // Save workspace config
     const workspaceConfig = {
       name,
       branch: branchName,
       repos: successfulRepos,
-      database: {
-        enabled: config.database.enabled,
-        port: dbPort,
-        container: dbContainer,
-      },
+      database: dbPort
+        ? {
+            enabled: true,
+            port: dbPort,
+            container: dbContainer,
+          }
+        : { enabled: false },
       created: new Date().toISOString(),
       status: "active",
     };
@@ -390,8 +335,63 @@ export const createCommand = new Command("create")
       JSON.stringify(workspaceConfig, null, 2)
     );
 
+    // Add to VS Code workspace file if it exists
+    const projectRoot = getProjectRoot();
+    const vscodeWorkspaceFiles = [
+      join(projectRoot, "code-workspace.code-workspace"),
+      join(projectRoot, ".code-workspace"),
+      join(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`),
+    ];
+
+    for (const vscodeFile of vscodeWorkspaceFiles) {
+      if (existsSync(vscodeFile)) {
+        try {
+          const vscodeContent = JSON.parse(readFileSync(vscodeFile, "utf-8"));
+          if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
+            // Add workspace folders for each repo
+            const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
+            let added = false;
+
+            for (const repo of successfulRepos) {
+              const folderPath = `${workspaceRelPath}/${repo}`;
+              const folderName = `[${name}] ${repo}`;
+
+              // Check if already exists
+              const exists = vscodeContent.folders.some(
+                (f: { path?: string; name?: string }) =>
+                  f.path === folderPath || f.name === folderName
+              );
+
+              if (!exists) {
+                // Find where to insert (after the "." folder which is usually last of main repos)
+                const dotIndex = vscodeContent.folders.findIndex(
+                  (f: { path?: string }) => f.path === "."
+                );
+                const insertIndex = dotIndex !== -1 ? dotIndex : vscodeContent.folders.length;
+
+                vscodeContent.folders.splice(insertIndex, 0, {
+                  name: folderName,
+                  path: folderPath,
+                });
+                added = true;
+              }
+            }
+
+            if (added) {
+              writeFileSync(vscodeFile, JSON.stringify(vscodeContent, null, 2) + "\n");
+              console.log(chalk.green(`  ✓ Added to VS Code workspace`));
+            }
+          }
+        } catch (error: any) {
+          console.log(chalk.yellow(`  ⚠ Could not update VS Code workspace: ${error.message}`));
+        }
+        break; // Only update the first workspace file found
+      }
+    }
+
     // Summary
-    p.outro(chalk.green.bold("Workspace Ready!"));
+    console.log();
+    console.log(chalk.green.bold("✓ Workspace Ready!"));
     console.log();
     console.log(chalk.dim("  Location:"), workspaceDir);
     console.log(chalk.dim("  Branch:  "), branchName);

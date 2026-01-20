@@ -2,60 +2,49 @@
 # hyve zsh completion
 # Add to ~/.zshrc: fpath=(/path/to/hyve/completions $fpath) && compinit
 
+_hyve_find_config() {
+    local dir="$PWD"
+    while [[ "$dir" != "/" ]]; do
+        [[ -f "$dir/.hyve.yaml" ]] && { echo "$dir/.hyve.yaml"; return; }
+        [[ -f "$dir/.hyve.yml" ]] && { echo "$dir/.hyve.yml"; return; }
+        dir="${dir:h}"
+    done
+}
+
 _hyve_get_workspaces() {
-    local config_file
-    config_file=$(find . -maxdepth 1 -name ".hyve.yaml" -o -name ".hyve.yml" 2>/dev/null | head -1)
-    if [[ -n "$config_file" ]]; then
-        local workspaces_dir
-        workspaces_dir=$(grep "^workspaces_dir:" "$config_file" 2>/dev/null | sed 's/workspaces_dir:[[:space:]]*//' | sed 's/^[[:space:]]*//')
-        [[ -z "$workspaces_dir" ]] && workspaces_dir="./workspaces"
-        if [[ -d "$workspaces_dir" ]]; then
-            ls -1 "$workspaces_dir" 2>/dev/null | grep -v "^\."
-        fi
-    fi
+    local config_file=$(_hyve_find_config)
+    [[ -z "$config_file" ]] && return
+
+    local config_dir="${config_file:h}"
+    local workspaces_dir
+    workspaces_dir=$(grep "^workspaces_dir:" "$config_file" 2>/dev/null | cut -d: -f2 | tr -d ' "'"'"'')
+    [[ -z "$workspaces_dir" ]] && workspaces_dir="./workspaces"
+
+    # Resolve relative path
+    [[ "$workspaces_dir" == ./* ]] && workspaces_dir="$config_dir/${workspaces_dir#./}"
+
+    [[ -d "$workspaces_dir" ]] && ls -1 "$workspaces_dir" 2>/dev/null | grep -v "^\."
 }
 
 _hyve_get_repos() {
-    local config_file
-    config_file=$(find . -maxdepth 1 -name ".hyve.yaml" -o -name ".hyve.yml" 2>/dev/null | head -1)
-    if [[ -n "$config_file" ]]; then
-        if command -v yq &> /dev/null; then
-            yq eval '.repos | keys | .[]' "$config_file" 2>/dev/null | grep -v null
-        else
-            awk '/^repos:/{flag=1; next} /^[a-z]/ && flag{exit} flag && /^  [a-zA-Z_-]+:/{gsub(/[: ]/, ""); print}' "$config_file" 2>/dev/null
-        fi
-    fi
+    local config_file=$(_hyve_find_config)
+    [[ -z "$config_file" ]] && return
+
+    # Fast awk-based parsing (no yq dependency)
+    awk '/^repos:/{flag=1; next} /^[a-z]/ && flag{exit} flag && /^  [a-zA-Z0-9_-]+:/{gsub(/[: ]/, ""); print}' "$config_file" 2>/dev/null
 }
 
 _hyve() {
     local -a commands
     commands=(
-        'init:Initialize hyve in current directory'
         'create:Create new feature workspace'
         'list:List all workspaces'
         'status:Show workspace status'
-        'start:Start workspace services'
-        'stop:Stop workspace services'
         'cleanup:Remove workspace'
-        'shell:Open shell in workspace'
         'db:Connect to workspace database'
-        'install:Full pnpm install'
-        'install-commands:Install Claude Code slash commands'
-        'run:Start all services locally'
+        'run:Start services for workspace'
         'halt:Stop all running services'
-        'open:Open browser tabs for frontends'
-        'services:Show service status and ports'
-        'logs:View service logs'
-        'up:Start workspace with Docker'
-        'down:Stop workspace Docker services'
-        'docker-status:Show Docker container status'
-        'docker-logs:View Docker container logs'
-        'docker-exec:Execute command in container'
-        'docker-restart:Restart Docker services'
-        'docker-rebuild:Rebuild and restart services'
     )
-
-    local -a workspaces repos
 
     _arguments -C \
         '1: :->command' \
@@ -69,29 +58,33 @@ _hyve() {
             case "${words[2]}" in
                 create)
                     if [[ $CURRENT -eq 3 ]]; then
-                        repos=($(_hyve_get_repos))
-                        _alternative \
-                            'options:options:((--existing\:"Select from existing branches" --from\:"Create from specific branch"))' \
-                            "repos:repos:($repos)"
+                        # First arg is the workspace name (free text)
+                        _message 'workspace name'
                     else
+                        # Additional args are repos
+                        local -a repos
                         repos=($(_hyve_get_repos))
-                        _describe -t repos 'repos' repos
+                        _arguments \
+                            '--from[Create from existing branch]:branch' \
+                            '--no-setup[Skip running setup scripts]' \
+                            "*:repo:($repos)"
                     fi
                     ;;
-                status|start|stop|cleanup|shell|db|install|run|halt|open|services|logs|up|down|docker-status|docker-logs|docker-exec|docker-restart|docker-rebuild)
+                cleanup)
                     if [[ $CURRENT -eq 3 ]]; then
+                        local -a workspaces
+                        workspaces=($(_hyve_get_workspaces))
+                        _arguments \
+                            '-f[Skip confirmation]' \
+                            '--force[Skip confirmation]' \
+                            ":workspace:($workspaces)"
+                    fi
+                    ;;
+                status|db|run|halt)
+                    if [[ $CURRENT -eq 3 ]]; then
+                        local -a workspaces
                         workspaces=($(_hyve_get_workspaces))
                         _describe -t workspaces 'workspaces' workspaces
-                    elif [[ $CURRENT -ge 4 ]]; then
-                        case "${words[2]}" in
-                            run|logs|docker-logs|docker-exec|docker-restart|docker-rebuild)
-                                repos=($(_hyve_get_repos))
-                                _describe -t repos 'services' repos
-                                ;;
-                            down)
-                                _arguments '-v[Remove database data]'
-                                ;;
-                        esac
                     fi
                     ;;
             esac

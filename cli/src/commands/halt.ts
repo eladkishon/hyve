@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { execa } from "execa";
+import { execSync } from "child_process";
 import { existsSync, readFileSync, rmSync } from "fs";
 import { join } from "path";
 import { getWorkspaceDir } from "../config.js";
@@ -41,7 +41,7 @@ export const haltCommand = new Command("halt")
     const workspaceDir = getWorkspaceDir(name);
     const logsDir = join(workspaceDir, ".hyve", "logs");
 
-    p.intro(chalk.cyan(`Stopping services for ${chalk.bold(name)}`));
+    console.log(chalk.cyan(`Stopping services for ${chalk.bold(name)}`));
 
     // Stop services by PID
     const repos = wsConfig?.repos || [];
@@ -49,9 +49,6 @@ export const haltCommand = new Command("halt")
       const pidFile = join(logsDir, `${repo}.pid`);
 
       if (existsSync(pidFile)) {
-        const spinner = p.spinner();
-        spinner.start(`Stopping ${repo}...`);
-
         try {
           const pid = parseInt(readFileSync(pidFile, "utf-8").trim());
 
@@ -59,7 +56,6 @@ export const haltCommand = new Command("halt")
           try {
             process.kill(-pid, "SIGTERM");
           } catch {
-            // Try killing just the process
             try {
               process.kill(pid, "SIGTERM");
             } catch {}
@@ -67,29 +63,17 @@ export const haltCommand = new Command("halt")
 
           // Also kill any child processes
           try {
-            await execa("pkill", ["-P", String(pid)]);
+            execSync(`pkill -P ${pid}`, { stdio: "ignore" });
           } catch {}
 
           rmSync(pidFile);
-          spinner.stop(`${repo} stopped`);
-        } catch (error: any) {
-          spinner.stop(`${repo} already stopped`);
+          console.log(chalk.green(`  ✓ ${repo} stopped`));
+        } catch {
           rmSync(pidFile, { force: true });
+          console.log(chalk.dim(`  - ${repo} already stopped`));
         }
       }
     }
 
-    // Stop database
-    if (wsConfig?.database?.container) {
-      const dbSpinner = p.spinner();
-      dbSpinner.start("Stopping database...");
-      try {
-        await execa("docker", ["stop", wsConfig.database.container]);
-        dbSpinner.stop("Database stopped");
-      } catch {
-        dbSpinner.stop("Database not running");
-      }
-    }
-
-    p.outro(chalk.green("All services stopped"));
+    console.log(chalk.green("✓ All services stopped"));
   });

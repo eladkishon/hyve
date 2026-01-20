@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { execa } from "execa";
+import { spawnSync } from "child_process";
 import { loadConfig } from "../config.js";
 import { listWorkspaces, workspaceExists, getWorkspaceConfig } from "../utils.js";
 
@@ -26,7 +26,7 @@ export const dbCommand = new Command("db")
         p.cancel("Cancelled");
         process.exit(0);
       }
-      name = result;
+      name = result as string;
     }
 
     if (!workspaceExists(name)) {
@@ -46,7 +46,7 @@ export const dbCommand = new Command("db")
     console.log();
 
     // Connect using psql
-    await execa(
+    spawnSync(
       "psql",
       [
         "-h",
