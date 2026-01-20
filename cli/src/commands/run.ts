@@ -584,15 +584,16 @@ async function startFileWatcher(
     const triggerPort = runningServices.get(triggerName);
     if (triggerConfig?.health_check && triggerPort) {
       const healthUrl = triggerConfig.health_check.replace("${port}", String(triggerPort));
-      console.log(`  ${chalk.dim("Waiting for")} ${triggerName} ${chalk.dim("to be healthy...")}`)
+      process.stdout.write(`  ${chalk.dim("Waiting for")} ${triggerName} ${chalk.dim("to be healthy...")}`);
 
-      const maxWaitMs = 30000;
+      const maxWaitMs = 120000; // 2 minutes - server rebuild can take time
       const startTime = Date.now();
       let healthy = false;
+      let dots = 0;
 
       while (Date.now() - startTime < maxWaitMs) {
         try {
-          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(2000) });
+          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(3000) });
           if (response.ok) {
             healthy = true;
             break;
@@ -600,13 +601,22 @@ async function startFileWatcher(
         } catch {
           // Keep trying
         }
+        // Show progress dots
+        dots++;
+        if (dots % 5 === 0) {
+          process.stdout.write(".");
+        }
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       if (!healthy) {
-        console.log(`  ${chalk.yellow("⚠")} ${triggerName} health check timed out, proceeding anyway...`);
+        console.log();
+        console.log(`  ${chalk.yellow("⚠")} ${triggerName} health check timed out after 2 minutes`);
+        console.log(`  ${chalk.dim("Skipping pre_run - service may still be starting")}`);
+        return; // Don't run pre_run if service isn't healthy
       } else {
-        console.log(`  ${chalk.green("✓")} ${triggerName} is healthy`);
+        const elapsed = Math.round((Date.now() - startTime) / 1000);
+        console.log(` ${chalk.green("✓")} ${chalk.dim(`(${elapsed}s)`)}`);
       }
     }
 

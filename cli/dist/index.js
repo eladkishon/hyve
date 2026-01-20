@@ -1049,25 +1049,34 @@ async function startFileWatcher(_workspaceName, config, workspaceDir, runningSer
     const triggerPort = runningServices.get(triggerName);
     if (triggerConfig?.health_check && triggerPort) {
       const healthUrl = triggerConfig.health_check.replace("${port}", String(triggerPort));
-      console.log(`  ${chalk5.dim("Waiting for")} ${triggerName} ${chalk5.dim("to be healthy...")}`);
-      const maxWaitMs = 3e4;
+      process.stdout.write(`  ${chalk5.dim("Waiting for")} ${triggerName} ${chalk5.dim("to be healthy...")}`);
+      const maxWaitMs = 12e4;
       const startTime = Date.now();
       let healthy = false;
+      let dots = 0;
       while (Date.now() - startTime < maxWaitMs) {
         try {
-          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(2e3) });
+          const response = await fetch(healthUrl, { signal: AbortSignal.timeout(3e3) });
           if (response.ok) {
             healthy = true;
             break;
           }
         } catch {
         }
+        dots++;
+        if (dots % 5 === 0) {
+          process.stdout.write(".");
+        }
         await new Promise((resolve) => setTimeout(resolve, 1e3));
       }
       if (!healthy) {
-        console.log(`  ${chalk5.yellow("\u26A0")} ${triggerName} health check timed out, proceeding anyway...`);
+        console.log();
+        console.log(`  ${chalk5.yellow("\u26A0")} ${triggerName} health check timed out after 2 minutes`);
+        console.log(`  ${chalk5.dim("Skipping pre_run - service may still be starting")}`);
+        return;
       } else {
-        console.log(`  ${chalk5.green("\u2713")} ${triggerName} is healthy`);
+        const elapsed = Math.round((Date.now() - startTime) / 1e3);
+        console.log(` ${chalk5.green("\u2713")} ${chalk5.dim(`(${elapsed}s)`)}`);
       }
     }
     for (const dep of toRun) {
