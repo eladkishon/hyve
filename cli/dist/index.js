@@ -1167,21 +1167,26 @@ var haltCommand = new Command6("halt").alias("stop").description("Stop all servi
     p5.log.error(`Workspace not found: ${name}`);
     process.exit(1);
   }
+  const config = loadConfig();
   const wsConfig = getWorkspaceConfig(name);
   const workspaceDir = getWorkspaceDir(name);
   const logsDir = join6(workspaceDir, ".hyve", "logs");
+  const workspaceIndex = getWorkspaceIndex(name);
   console.log(chalk6.cyan(`Stopping services for ${chalk6.bold(name)}`));
   const repos = wsConfig?.repos || [];
   for (const repo of repos) {
     const pidFile = join6(logsDir, `${repo}.pid`);
+    let stopped = false;
     if (existsSync6(pidFile)) {
       try {
         const pid = parseInt(readFileSync5(pidFile, "utf-8").trim());
         try {
           process.kill(-pid, "SIGTERM");
+          stopped = true;
         } catch {
           try {
             process.kill(pid, "SIGTERM");
+            stopped = true;
           } catch {
           }
         }
@@ -1190,11 +1195,36 @@ var haltCommand = new Command6("halt").alias("stop").description("Stop all servi
         } catch {
         }
         rmSync2(pidFile);
-        console.log(chalk6.green(`  \u2713 ${repo} stopped`));
       } catch {
         rmSync2(pidFile, { force: true });
-        console.log(chalk6.dim(`  - ${repo} already stopped`));
       }
+    }
+    const serviceConfig = config.services.definitions[repo];
+    if (serviceConfig) {
+      const port = calculateServicePort(
+        repo,
+        serviceConfig.default_port,
+        config.services.base_port,
+        workspaceIndex,
+        config.services.port_offset
+      );
+      try {
+        const { stdout } = { stdout: execSync3(`lsof -ti :${port}`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }) };
+        const pids = stdout.trim().split("\n").filter(Boolean);
+        for (const pid of pids) {
+          try {
+            execSync3(`kill -9 ${pid}`, { stdio: "ignore" });
+            stopped = true;
+          } catch {
+          }
+        }
+      } catch {
+      }
+    }
+    if (stopped) {
+      console.log(chalk6.green(`  \u2713 ${repo} stopped`));
+    } else {
+      console.log(chalk6.dim(`  - ${repo} not running`));
     }
   }
   console.log(chalk6.green("\u2713 All services stopped"));

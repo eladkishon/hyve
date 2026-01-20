@@ -4,8 +4,8 @@ import chalk from "chalk";
 import { execSync } from "child_process";
 import { existsSync, readFileSync, rmSync } from "fs";
 import { join } from "path";
-import { getWorkspaceDir } from "../config.js";
-import { listWorkspaces, workspaceExists, getWorkspaceConfig } from "../utils.js";
+import { loadConfig, getWorkspaceDir } from "../config.js";
+import { listWorkspaces, workspaceExists, getWorkspaceConfig, getWorkspaceIndex, calculateServicePort } from "../utils.js";
 
 export const haltCommand = new Command("halt")
   .alias("stop")
@@ -37,17 +37,21 @@ export const haltCommand = new Command("halt")
       process.exit(1);
     }
 
+    const config = loadConfig();
     const wsConfig = getWorkspaceConfig(name);
-    const workspaceDir = getWorkspaceDir(name);
+    const workspaceDir = getWorkspaceDir(name!);
     const logsDir = join(workspaceDir, ".hyve", "logs");
+    const workspaceIndex = getWorkspaceIndex(name!);
 
     console.log(chalk.cyan(`Stopping services for ${chalk.bold(name)}`));
 
-    // Stop services by PID
+    // Stop services by PID and by port
     const repos = wsConfig?.repos || [];
     for (const repo of repos) {
       const pidFile = join(logsDir, `${repo}.pid`);
+      let stopped = false;
 
+      // First try by PID
       if (existsSync(pidFile)) {
         try {
           const pid = parseInt(readFileSync(pidFile, "utf-8").trim());
@@ -55,9 +59,11 @@ export const haltCommand = new Command("halt")
           // Kill process group
           try {
             process.kill(-pid, "SIGTERM");
+            stopped = true;
           } catch {
             try {
               process.kill(pid, "SIGTERM");
+              stopped = true;
             } catch {}
           }
 
@@ -67,11 +73,40 @@ export const haltCommand = new Command("halt")
           } catch {}
 
           rmSync(pidFile);
-          console.log(chalk.green(`  ✓ ${repo} stopped`));
         } catch {
           rmSync(pidFile, { force: true });
-          console.log(chalk.dim(`  - ${repo} already stopped`));
         }
+      }
+
+      // Also kill by port (in case PID is stale or process was restarted)
+      const serviceConfig = config.services.definitions[repo];
+      if (serviceConfig) {
+        const port = calculateServicePort(
+          repo,
+          serviceConfig.default_port,
+          config.services.base_port,
+          workspaceIndex,
+          config.services.port_offset
+        );
+
+        try {
+          const { stdout } = { stdout: execSync(`lsof -ti :${port}`, { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] }) };
+          const pids = stdout.trim().split("\n").filter(Boolean);
+          for (const pid of pids) {
+            try {
+              execSync(`kill -9 ${pid}`, { stdio: "ignore" });
+              stopped = true;
+            } catch {}
+          }
+        } catch {
+          // No process on this port
+        }
+      }
+
+      if (stopped) {
+        console.log(chalk.green(`  ✓ ${repo} stopped`));
+      } else {
+        console.log(chalk.dim(`  - ${repo} not running`));
       }
     }
 
