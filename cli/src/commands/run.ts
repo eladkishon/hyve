@@ -586,7 +586,7 @@ async function startFileWatcher(
       const healthUrl = triggerConfig.health_check.replace("${port}", String(triggerPort));
       process.stdout.write(`  ${chalk.dim("Waiting for")} ${triggerName} ${chalk.dim("to be healthy...")}`);
 
-      const maxWaitMs = 120000; // 2 minutes - server rebuild can take time
+      const maxWaitMs = 300000; // 5 minutes - server rebuild can take time
       const startTime = Date.now();
       let healthy = false;
       let dots = 0;
@@ -611,7 +611,7 @@ async function startFileWatcher(
 
       if (!healthy) {
         console.log();
-        console.log(`  ${chalk.yellow("⚠")} ${triggerName} health check timed out after 2 minutes`);
+        console.log(`  ${chalk.yellow("⚠")} ${triggerName} health check timed out after 5 minutes`);
         console.log(`  ${chalk.dim("Skipping pre_run - service may still be starting")}`);
         return; // Don't run pre_run if service isn't healthy
       } else {
