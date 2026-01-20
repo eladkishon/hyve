@@ -1,0 +1,102 @@
+#compdef hyve
+# hyve zsh completion
+# Add to ~/.zshrc: fpath=(/path/to/hyve/completions $fpath) && compinit
+
+_hyve_get_workspaces() {
+    local config_file
+    config_file=$(find . -maxdepth 1 -name ".hyve.yaml" -o -name ".hyve.yml" 2>/dev/null | head -1)
+    if [[ -n "$config_file" ]]; then
+        local workspaces_dir
+        workspaces_dir=$(grep "^workspaces_dir:" "$config_file" 2>/dev/null | sed 's/workspaces_dir:[[:space:]]*//' | sed 's/^[[:space:]]*//')
+        [[ -z "$workspaces_dir" ]] && workspaces_dir="./workspaces"
+        if [[ -d "$workspaces_dir" ]]; then
+            ls -1 "$workspaces_dir" 2>/dev/null | grep -v "^\."
+        fi
+    fi
+}
+
+_hyve_get_repos() {
+    local config_file
+    config_file=$(find . -maxdepth 1 -name ".hyve.yaml" -o -name ".hyve.yml" 2>/dev/null | head -1)
+    if [[ -n "$config_file" ]]; then
+        if command -v yq &> /dev/null; then
+            yq eval '.repos | keys | .[]' "$config_file" 2>/dev/null | grep -v null
+        else
+            awk '/^repos:/{flag=1; next} /^[a-z]/ && flag{exit} flag && /^  [a-zA-Z_-]+:/{gsub(/[: ]/, ""); print}' "$config_file" 2>/dev/null
+        fi
+    fi
+}
+
+_hyve() {
+    local -a commands
+    commands=(
+        'init:Initialize hyve in current directory'
+        'create:Create new feature workspace'
+        'list:List all workspaces'
+        'status:Show workspace status'
+        'start:Start workspace services'
+        'stop:Stop workspace services'
+        'cleanup:Remove workspace'
+        'shell:Open shell in workspace'
+        'db:Connect to workspace database'
+        'install:Full pnpm install'
+        'install-commands:Install Claude Code slash commands'
+        'run:Start all services locally'
+        'halt:Stop all running services'
+        'open:Open browser tabs for frontends'
+        'services:Show service status and ports'
+        'logs:View service logs'
+        'up:Start workspace with Docker'
+        'down:Stop workspace Docker services'
+        'docker-status:Show Docker container status'
+        'docker-logs:View Docker container logs'
+        'docker-exec:Execute command in container'
+        'docker-restart:Restart Docker services'
+        'docker-rebuild:Rebuild and restart services'
+    )
+
+    local -a workspaces repos
+
+    _arguments -C \
+        '1: :->command' \
+        '*: :->args'
+
+    case "$state" in
+        command)
+            _describe -t commands 'hyve commands' commands
+            ;;
+        args)
+            case "${words[2]}" in
+                create)
+                    if [[ $CURRENT -eq 3 ]]; then
+                        repos=($(_hyve_get_repos))
+                        _alternative \
+                            'options:options:((--existing\:"Select from existing branches" --from\:"Create from specific branch"))' \
+                            "repos:repos:($repos)"
+                    else
+                        repos=($(_hyve_get_repos))
+                        _describe -t repos 'repos' repos
+                    fi
+                    ;;
+                status|start|stop|cleanup|shell|db|install|run|halt|open|services|logs|up|down|docker-status|docker-logs|docker-exec|docker-restart|docker-rebuild)
+                    if [[ $CURRENT -eq 3 ]]; then
+                        workspaces=($(_hyve_get_workspaces))
+                        _describe -t workspaces 'workspaces' workspaces
+                    elif [[ $CURRENT -ge 4 ]]; then
+                        case "${words[2]}" in
+                            run|logs|docker-logs|docker-exec|docker-restart|docker-rebuild)
+                                repos=($(_hyve_get_repos))
+                                _describe -t repos 'services' repos
+                                ;;
+                            down)
+                                _arguments '-v[Remove database data]'
+                                ;;
+                        esac
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_hyve "$@"

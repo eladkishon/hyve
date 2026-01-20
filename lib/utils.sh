@@ -42,6 +42,95 @@ print_logo() {
     echo -e "${YELLOW}⬡${NC} ${BOLD}hyve${NC}"
 }
 
+# Interactive arrow-key selector
+# Usage: selected=$(interactive_select "prompt" "${options[@]}")
+interactive_select() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    local selected=0
+    local count=${#options[@]}
+
+    # Hide cursor
+    tput civis 2>/dev/null
+
+    # Cleanup on exit
+    trap 'tput cnorm 2>/dev/null' EXIT
+
+    # Initial draw
+    echo -e "${CYAN}◆${NC} $prompt" >&2
+    echo "" >&2
+
+    while true; do
+        # Print options
+        for i in "${!options[@]}"; do
+            if [ $i -eq $selected ]; then
+                echo -e "  ${CYAN}❯${NC} ${BOLD}${options[$i]}${NC}" >&2
+            else
+                echo -e "    ${DIM}${options[$i]}${NC}" >&2
+            fi
+        done
+
+        # Read single keypress
+        IFS= read -rsn1 key
+
+        # Handle arrow keys (escape sequences)
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            case $key in
+                '[A') # Up arrow
+                    ((selected--))
+                    [ $selected -lt 0 ] && selected=$((count - 1))
+                    ;;
+                '[B') # Down arrow
+                    ((selected++))
+                    [ $selected -ge $count ] && selected=0
+                    ;;
+            esac
+        elif [[ $key == '' ]]; then
+            # Enter pressed - clear the menu and break
+            tput cuu $count 2>/dev/null >&2
+            for ((i=0; i<count; i++)); do
+                echo -e "\033[K" >&2
+            done
+            tput cuu $count 2>/dev/null >&2
+            break
+        elif [[ $key == 'q' ]]; then
+            tput cnorm 2>/dev/null
+            echo "" >&2
+            return 1
+        fi
+
+        # Move cursor up to redraw options
+        tput cuu $count 2>/dev/null >&2
+    done
+
+    # Show cursor
+    tput cnorm 2>/dev/null
+    trap - EXIT
+
+    # Return selected option (to stdout for capture)
+    echo "${options[$selected]}"
+}
+
+# Sanitize a string to be a valid git branch name
+# Converts spaces and special chars to dashes, removes invalid chars
+sanitize_branch_name() {
+    local name="$1"
+    # Replace spaces with dashes
+    name="${name// /-}"
+    # Replace multiple dashes with single dash
+    name=$(echo "$name" | sed 's/--*/-/g')
+    # Remove characters not allowed in git branch names
+    # Allowed: alphanumeric, dash, underscore, dot, slash
+    name=$(echo "$name" | sed 's/[^a-zA-Z0-9._/-]//g')
+    # Remove leading/trailing dashes or dots
+    name=$(echo "$name" | sed 's/^[-.]*//' | sed 's/[-.]*$//')
+    # Convert to lowercase for consistency
+    name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+    echo "$name"
+}
+
 # Check if command exists
 require_cmd() {
     if ! command -v "$1" &> /dev/null; then

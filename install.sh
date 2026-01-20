@@ -130,15 +130,31 @@ install_hyve() {
     # Make executable
     chmod +x "$INSTALL_DIR/bin/hyve"
 
-    # Add to PATH
+    # Add to PATH and shell completions
     local shell_rc=$(detect_shell)
+    local shell_name=$(basename "$SHELL")
     local path_line='export PATH="$HOME/.hyve/bin:$PATH"'
 
     if ! grep -q ".hyve/bin" "$shell_rc" 2>/dev/null; then
         echo "" >> "$shell_rc"
         echo "# Hyve - Multi-Repo Agent Workspaces" >> "$shell_rc"
         echo "$path_line" >> "$shell_rc"
-        log_success "Added Hyve to PATH in $shell_rc"
+
+        # Add shell completions based on shell type
+        case $shell_name in
+            zsh)
+                echo 'fpath=($HOME/.hyve/completions $fpath)' >> "$shell_rc"
+                echo 'autoload -Uz compinit && compinit' >> "$shell_rc"
+                log_success "Added Hyve to PATH and completions in $shell_rc"
+                ;;
+            bash)
+                echo 'source "$HOME/.hyve/completions/hyve.bash"' >> "$shell_rc"
+                log_success "Added Hyve to PATH and completions in $shell_rc"
+                ;;
+            *)
+                log_success "Added Hyve to PATH in $shell_rc"
+                ;;
+        esac
     else
         log_info "PATH already configured"
     fi

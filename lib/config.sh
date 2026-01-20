@@ -166,6 +166,43 @@ get_repo_path() {
     echo "$path"
 }
 
+# Get symlinks configuration for a repo
+get_repo_symlinks() {
+    local repo_name=$1
+    local config_file=$(find_config)
+
+    if [ -z "$config_file" ]; then
+        return
+    fi
+
+    if command -v yq &> /dev/null; then
+        yq eval ".repos.$repo_name.symlinks // [] | .[]" "$config_file" 2>/dev/null
+    else
+        # Extract symlinks using awk
+        awk -v repo="$repo_name" '
+            /^  [a-zA-Z_-]+:/ {
+                current_repo = $1
+                gsub(/:/, "", current_repo)
+                in_symlinks = 0
+            }
+            current_repo == repo && /symlinks:/ {
+                in_symlinks = 1
+                next
+            }
+            in_symlinks && /^      - / {
+                sub(/^[[:space:]]*- /, "")
+                print
+            }
+            in_symlinks && /^    [a-zA-Z]/ {
+                in_symlinks = 0
+            }
+            in_symlinks && /^  [a-zA-Z]/ {
+                exit
+            }
+        ' "$config_file"
+    fi
+}
+
 # Database config getters
 get_db_enabled() {
     local config_file=$(find_config)
@@ -202,6 +239,12 @@ get_db_image() {
     yaml_get "$config_file" '.database.image' 'postgres:15'
 }
 
+# Docker config getters
+get_docker_enabled() {
+    local config_file=$(find_config)
+    [ -n "$config_file" ] && [ "$(yaml_get "$config_file" '.docker.enabled' 'false')" = "true" ]
+}
+
 get_branch_prefix() {
     local config_file=$(find_config)
     local prefix=$(yaml_get "$config_file" '.branches.prefix' 'feature/')
@@ -210,6 +253,45 @@ get_branch_prefix() {
     # Trim whitespace
     prefix="${prefix%"${prefix##*[![:space:]]}"}"
     echo "$prefix"
+}
+
+# Get base branch (branch to create new features from)
+get_base_branch() {
+    local repo_path=${1:-.}
+    local config_file=$(find_config)
+    local configured_base=$(yaml_get "$config_file" '.branches.base' '')
+
+    # If configured in .hyve.yaml, use that
+    if [ -n "$configured_base" ]; then
+        echo "$configured_base"
+        return
+    fi
+
+    # Auto-detect: check if main or master exists
+    if [ -d "$repo_path/.git" ] || [ -f "$repo_path/.git" ]; then
+        cd "$repo_path" 2>/dev/null || return
+
+        # Check local branches first
+        if git show-ref --verify --quiet refs/heads/main 2>/dev/null; then
+            echo "main"
+            return
+        elif git show-ref --verify --quiet refs/heads/master 2>/dev/null; then
+            echo "master"
+            return
+        fi
+
+        # Check remote branches
+        if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+            echo "main"
+            return
+        elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+            echo "master"
+            return
+        fi
+    fi
+
+    # Default fallback
+    echo "main"
 }
 
 # Initialize config
@@ -295,9 +377,29 @@ database:
   password: postgres
   name: postgres
 
+# Services configuration (optional)
+services:
+  port_offset: 1000      # Port increment between features
+  base_port: 4000        # Starting port for first workspace
+
+  # Shell wrapper for dev commands (optional)
+  # Use this to ensure correct Node version or runtime
+  # Examples:
+  #   shell_wrapper: "source ~/.nvm/nvm.sh && nvm use &&"
+  #   shell_wrapper: "volta run"
+  # shell_wrapper: ""
+
+  # Service definitions (optional)
+  # definitions:
+  #   server:
+  #     dev_command: "pnpm dev"
+  #   webapp:
+  #     dev_command: "npm run dev"
+
 # Branch naming convention
 branches:
   prefix: feature/       # Branches: feature/<feature-name>
+  base: main             # Base branch to create features from (auto-detects main/master if not set)
 
 # Claude Code agent settings
 agent:

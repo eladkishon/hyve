@@ -138,6 +138,103 @@ Note: Git branches are preserved in main repos. Only the workspace is removed.
 EOF
     log_success "Created hyve-cleanup command"
 
+    # hyve-run command
+    cat > "$commands_dir/hyve-run.md" << 'EOF'
+Start all services for a Hyve feature workspace with isolated ports.
+
+Arguments: $ARGUMENTS (format: <feature-name> [services...])
+
+Examples:
+- /hyve-run my-feature                    # Start all services
+- /hyve-run my-feature server webapp      # Start specific services only
+
+## What This Does:
+
+Each workspace gets its own port range to avoid conflicts:
+- Workspace 1: server=4000, webapp=4001, rn-platform=4012, etc.
+- Workspace 2: server=5000, webapp=5001, rn-platform=5012, etc.
+
+## Steps:
+
+1. Run: `hyve run <feature-name> [services...]`
+2. This will:
+   - Start the database container if configured
+   - Generate `.env.services` file with all port assignments
+   - Start each service (server, webapp, etc.) with correct PORT env var
+   - Show URLs for all running services
+   - Automatically open browser tabs for all frontend services
+
+## Output:
+
+Report the running services and their URLs in a table format:
+- Service name
+- Port number
+- URL
+
+Also mention:
+- Log location: `<workspace>/.hyve/logs/`
+- How to stop: `hyve halt <feature-name>`
+- Browser tabs are automatically opened for frontend services (webapp, rn-platform-website, mobile, patients-app)
+EOF
+    log_success "Created hyve-run command"
+
+    # hyve-halt command
+    cat > "$commands_dir/hyve-halt.md" << 'EOF'
+Stop all running services for a Hyve feature workspace.
+
+Arguments: $ARGUMENTS (feature name)
+
+## Steps:
+
+1. Run: `hyve halt <feature-name>`
+2. This will:
+   - Stop all running service processes
+   - Stop the database container
+
+## Notes:
+- Safe to run even if services aren't running
+- Does not affect git state or workspace files
+EOF
+    log_success "Created hyve-halt command"
+
+    # hyve-open command
+    cat > "$commands_dir/hyve-open.md" << 'EOF'
+Open browser tabs for all frontend services in a Hyve workspace.
+
+Arguments: $ARGUMENTS (feature name)
+
+## Steps:
+
+1. Run: `hyve open <feature-name>`
+2. This will open browser tabs for:
+   - webapp (if running)
+   - rn-platform-website (if running)
+   - patients-app (if running)
+   - mobile (if running)
+
+## Notes:
+- Services should be running first (use `hyve run` or `/hyve-run`)
+- Uses the correct ports for this workspace
+EOF
+    log_success "Created hyve-open command"
+
+    # hyve-services command
+    cat > "$commands_dir/hyve-services.md" << 'EOF'
+Show status of all services for a Hyve feature workspace.
+
+Arguments: $ARGUMENTS (feature name)
+
+## Steps:
+
+1. Run: `hyve services <feature-name>`
+2. Report the status table showing:
+   - Service name
+   - Port number
+   - Status (running/stopped)
+   - Database status (if configured)
+EOF
+    log_success "Created hyve-services command"
+
     echo ""
     log_success "Slash commands installed to $commands_dir"
     echo ""
@@ -146,5 +243,11 @@ EOF
     echo "  /hyve-status   - Check workspace status"
     echo "  /hyve-work     - Spawn agent for feature"
     echo "  /hyve-cleanup  - Remove workspace"
+    echo ""
+    echo "Multi-service commands:"
+    echo "  /hyve-run      - Start all services with isolated ports"
+    echo "  /hyve-halt     - Stop all services"
+    echo "  /hyve-open     - Open browser tabs for frontends"
+    echo "  /hyve-services - Show service status"
     echo ""
 }

@@ -12,6 +12,7 @@ get_feature_db_port() {
 }
 
 # Create database for feature
+# Outputs only the port number to stdout (all logging goes to stderr)
 create_feature_database() {
     local feature_name=$1
     local base_port=$(get_db_base_port)
@@ -24,7 +25,7 @@ create_feature_database() {
     local container_name="hyve-db-$feature_name"
     local db_port=$(find_available_port "$base_port")
 
-    log_step "Starting database container on port $db_port"
+    log_step "Starting database container on port $db_port" >&2
 
     # Start PostgreSQL container
     docker run -d \
@@ -35,7 +36,7 @@ create_feature_database() {
         -p "$db_port:5432" \
         "$db_image" >/dev/null
 
-    # Wait for database to be ready
+    # Wait for database to be ready (from host)
     local max_attempts=30
     local attempt=0
     while [ $attempt -lt $max_attempts ]; do
@@ -47,18 +48,37 @@ create_feature_database() {
     done
 
     if [ $attempt -eq $max_attempts ]; then
-        log_warning "Database may not be fully ready"
+        log_warning "Database may not be fully ready" >&2
+        log_success "Database container started" >&2
+        echo "$db_port"
+        return 1
     fi
 
-    log_success "Database container started"
+    # Wait for database to be ready (from inside container)
+    attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec "$container_name" psql -U "$db_user" -d "$db_name" -c "SELECT 1" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+
+    if [ $attempt -eq $max_attempts ]; then
+        log_warning "Database may not be ready for cloning" >&2
+    fi
+
+    log_success "Database container started" >&2
 
     # Clone from source database if available
     clone_database "$source_port" "$db_port" "$container_name" "$db_user" "$db_pass" "$db_name"
 
+    # Output only the port number
     echo "$db_port"
 }
 
 # Clone database from source
+# All logging goes to stderr to not interfere with port output
 clone_database() {
     local source_port=$1
     local target_port=$2
@@ -69,25 +89,21 @@ clone_database() {
 
     # Check if source database is accessible
     if ! PGPASSWORD="$db_pass" psql -h localhost -p "$source_port" -U "$db_user" -d "$db_name" -c "SELECT 1" >/dev/null 2>&1; then
-        log_info "Source database not available, starting with empty database"
+        log_info "Source database not available, starting with empty database" >&2
         return
     fi
 
-    log_step "Cloning database from port $source_port..."
+    log_step "Cloning database from port $source_port..." >&2
 
-    # Use the container's pg_dump to avoid version mismatch
-    if docker exec -e PGPASSWORD="$db_pass" "$container_name" \
-        pg_dump -h host.docker.internal -p "$source_port" -U "$db_user" "$db_name" 2>/dev/null | \
-        docker exec -i "$container_name" psql -U "$db_user" -d "$db_name" >/dev/null 2>&1; then
-        log_success "Database cloned successfully"
+    # Use single sh -c command to run both pg_dump and psql with proper env vars
+    if docker exec "$container_name" sh -c "PGPASSWORD='$db_pass' pg_dump -h host.docker.internal -p $source_port -U $db_user $db_name | PGPASSWORD='$db_pass' psql -U $db_user -d $db_name" >/dev/null 2>&1; then
+        log_success "Database cloned successfully" >&2
     else
         # Fallback: try docker bridge IP (Linux)
-        if docker exec -e PGPASSWORD="$db_pass" "$container_name" \
-            pg_dump -h 172.17.0.1 -p "$source_port" -U "$db_user" "$db_name" 2>/dev/null | \
-            docker exec -i "$container_name" psql -U "$db_user" -d "$db_name" >/dev/null 2>&1; then
-            log_success "Database cloned successfully"
+        if docker exec "$container_name" sh -c "PGPASSWORD='$db_pass' pg_dump -h 172.17.0.1 -p $source_port -U $db_user $db_name | PGPASSWORD='$db_pass' psql -U $db_user -d $db_name" >/dev/null 2>&1; then
+            log_success "Database cloned successfully" >&2
         else
-            log_warning "Could not clone database, starting with empty database"
+            log_warning "Could not clone database, starting with empty database" >&2
         fi
     fi
 }

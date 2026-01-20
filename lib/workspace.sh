@@ -129,6 +129,53 @@ cmd_create() {
         exit 1
     fi
 
+    # Sanitize feature name to be a valid git branch name
+    local original_name="$feature_name"
+    feature_name=$(sanitize_branch_name "$feature_name")
+    if [ "$original_name" != "$feature_name" ]; then
+        log_info "Sanitized name: '$original_name' → '$feature_name'"
+    fi
+
+    # Add required repos first (if configured)
+    local config_file=$(find_config)
+    local required_repos=()
+    if [ -n "$config_file" ]; then
+        if command -v yq &> /dev/null; then
+            required_repos=($(yq eval '.required_repos[]' "$config_file" 2>/dev/null | grep -v null || true))
+        else
+            # Fallback to awk parsing
+            required_repos=($(awk '
+                /^required_repos:/ { in_section = 1; next }
+                in_section && /^  - / {
+                    sub(/^  - /, "")
+                    gsub(/[[:space:]]*#.*$/, "")
+                    print
+                }
+                in_section && /^[a-zA-Z]/ { exit }
+            ' "$config_file"))
+        fi
+    fi
+
+    # Merge required repos with user-specified repos (avoiding duplicates)
+    local all_repos=()
+    for req_repo in "${required_repos[@]}"; do
+        all_repos+=("$req_repo")
+    done
+    for repo in "${repos[@]}"; do
+        # Only add if not already in list
+        local already_added=false
+        for existing in "${all_repos[@]}"; do
+            if [ "$existing" = "$repo" ]; then
+                already_added=true
+                break
+            fi
+        done
+        if ! $already_added; then
+            all_repos+=("$repo")
+        fi
+    done
+    repos=("${all_repos[@]}")
+
     # If no repos specified, use all configured repos
     if [ ${#repos[@]} -eq 0 ]; then
         repos=($(get_repos))
@@ -163,62 +210,105 @@ cmd_create() {
 
     mkdir -p "$workspace_dir"
 
-    # Create worktrees for each repo
-    local created_repos=()
+    # Create worktrees for each repo IN PARALLEL
+    # Each repo is independent, so we can parallelize across repos
+    local worktree_status_dir=$(mktemp -d)
+    local worktree_pids=()
+
     for repo in "${repos[@]}"; do
-        local repo_path=$(get_repo_path "$repo")
-        local worktree_dir="$workspace_dir/$repo"
+        (
+            local repo_path=$(get_repo_path "$repo")
+            local worktree_dir="$workspace_dir/$repo"
+            local status_file="$worktree_status_dir/$repo"
 
-        if [ ! -d "$repo_path/.git" ] && [ ! -f "$repo_path/.git" ]; then
-            log_warning "Repository not found: $repo_path"
-            continue
-        fi
+            if [ ! -d "$repo_path/.git" ] && [ ! -f "$repo_path/.git" ]; then
+                echo "not_found" > "$status_file"
+                exit 0
+            fi
 
-        log_step "Creating worktree for ${BOLD}$repo${NC}"
+            if [ ! -d "$repo_path" ]; then
+                echo "not_found" > "$status_file"
+                exit 0
+            fi
 
-        if [ ! -d "$repo_path" ]; then
-            log_error "  repo_path not found: $repo_path"
-            continue
-        fi
+            cd "$repo_path" || { echo "error:Cannot cd to $repo_path" > "$status_file"; exit 0; }
 
-        cd "$repo_path" || { log_error "Cannot cd to $repo_path"; continue; }
+            # Pull latest changes from base branch before creating worktree
+            local base_branch=$(get_base_branch "$repo_path")
+            if git show-ref --verify --quiet "refs/heads/$base_branch" 2>/dev/null; then
+                local current_branch=$(git branch --show-current)
+                git stash --quiet 2>/dev/null || true
+                git checkout "$base_branch" --quiet 2>/dev/null
+                git pull --quiet origin "$base_branch" 2>/dev/null || true
+                if [ -n "$current_branch" ] && [ "$current_branch" != "$base_branch" ]; then
+                    git checkout "$current_branch" --quiet 2>/dev/null || true
+                fi
+                git stash pop --quiet 2>/dev/null || true
+            fi
 
-        # Check if branch exists (local or remote)
-        local branch_exists=false
-        if git show-ref --verify --quiet "refs/heads/$branch_name" 2>/dev/null; then
-            branch_exists=true
-        elif git show-ref --verify --quiet "refs/remotes/origin/$branch_name" 2>/dev/null; then
-            branch_exists=true
-        fi
+            # Check if branch exists (local or remote)
+            local branch_exists=false
+            if git show-ref --verify --quiet "refs/heads/$branch_name" 2>/dev/null; then
+                branch_exists=true
+            elif git show-ref --verify --quiet "refs/remotes/origin/$branch_name" 2>/dev/null; then
+                branch_exists=true
+            fi
 
-        local git_output
-        if $branch_exists || $use_existing; then
-            # Use existing branch
-            if git_output=$(git worktree add "$worktree_dir" "$branch_name" 2>&1); then
-                log_success "$repo → $branch_name (existing branch)"
-                created_repos+=("$repo")
-            elif git_output=$(git worktree add "$worktree_dir" "origin/$branch_name" 2>&1); then
-                log_success "$repo → $branch_name (from remote)"
-                created_repos+=("$repo")
-            else
-                log_warning "$repo: Branch $branch_name not found, creating new"
-                if git_output=$(git worktree add "$worktree_dir" -b "$branch_name" 2>&1); then
-                    log_success "$repo → $branch_name (new branch)"
-                    created_repos+=("$repo")
+            local git_output
+            local use_existing_local=$use_existing
+            if $branch_exists || $use_existing_local; then
+                if git_output=$(git worktree add "$worktree_dir" "$branch_name" 2>&1); then
+                    echo "success:existing branch" > "$status_file"
+                elif git_output=$(git worktree add "$worktree_dir" "origin/$branch_name" 2>&1); then
+                    echo "success:from remote" > "$status_file"
                 else
-                    log_error "Failed to create worktree for $repo: $git_output"
+                    local base_branch=$(get_base_branch "$repo_path")
+                    if git_output=$(git worktree add "$worktree_dir" -b "$branch_name" "$base_branch" 2>&1); then
+                        echo "success:new branch from $base_branch" > "$status_file"
+                    else
+                        echo "error:$git_output" > "$status_file"
+                    fi
+                fi
+            else
+                local base_branch=$(get_base_branch "$repo_path")
+                if git_output=$(git worktree add "$worktree_dir" -b "$branch_name" "$base_branch" 2>&1); then
+                    echo "success:new branch from $base_branch" > "$status_file"
+                else
+                    echo "error:$git_output" > "$status_file"
                 fi
             fi
-        else
-            # Create new branch
-            if git_output=$(git worktree add "$worktree_dir" -b "$branch_name" 2>&1); then
-                log_success "$repo → $branch_name (new branch)"
-                created_repos+=("$repo")
-            else
-                log_error "Failed to create worktree for $repo: $git_output"
-            fi
+        ) &
+        worktree_pids+=("$!:$repo")
+    done
+
+    # Wait for all worktree jobs and collect results
+    local created_repos=()
+    for pid_repo in "${worktree_pids[@]}"; do
+        local pid="${pid_repo%%:*}"
+        local repo="${pid_repo#*:}"
+        wait "$pid"
+        local status_file="$worktree_status_dir/$repo"
+        if [ -f "$status_file" ]; then
+            local status=$(cat "$status_file")
+            case "$status" in
+                success:*)
+                    local msg="${status#success:}"
+                    log_success "$repo → $branch_name ($msg)"
+                    created_repos+=("$repo")
+                    ;;
+                not_found)
+                    log_warning "Repository not found: $repo"
+                    ;;
+                error:*)
+                    local msg="${status#error:}"
+                    log_error "Failed to create worktree for $repo: $msg"
+                    ;;
+            esac
         fi
     done
+
+    # Cleanup
+    rm -rf "$worktree_status_dir"
 
     if [ ${#created_repos[@]} -eq 0 ]; then
         log_error "No worktrees created"
@@ -226,15 +316,300 @@ cmd_create() {
         exit 1
     fi
 
-    # Handle database
+    # Run setup scripts for each repo IN PARALLEL
+    echo ""
+    log_step "Running setup scripts (parallel)..."
+
+    # Get shell wrapper from config (e.g., for nvm)
+    local config_file=$(find_config)
+    local shell_wrapper=""
+    if command -v yq &> /dev/null; then
+        shell_wrapper=$(yq eval ".services.shell_wrapper // \"\"" "$config_file" 2>/dev/null)
+        if [ "$shell_wrapper" = "null" ]; then
+            shell_wrapper=""
+        fi
+    fi
+
+    # Create temp dir for setup status files
+    local setup_status_dir=$(mktemp -d)
+    local setup_pids=()
+
+    for repo in "${created_repos[@]}"; do
+        local repo_path=$(get_repo_path "$repo")
+        local worktree_dir="$workspace_dir/$repo"
+
+        # Check if repo has a setup script configured
+        local setup_script=""
+        if [ -n "$config_file" ]; then
+            if command -v yq &> /dev/null; then
+                setup_script=$(yq eval ".repos.$repo.setup_script // \"\"" "$config_file" 2>/dev/null)
+                if [ "$setup_script" = "null" ]; then
+                    setup_script=""
+                fi
+            else
+                setup_script=$(awk -v repo="$repo" '
+                    /^  [a-zA-Z_-]+:/ {
+                        current_repo = $1
+                        gsub(/:/, "", current_repo)
+                    }
+                    current_repo == repo && /setup_script:/ {
+                        val = $0
+                        sub(/.*setup_script:[[:space:]]*/, "", val)
+                        gsub(/^"/, "", val)
+                        gsub(/"[[:space:]]*$/, "", val)
+                        gsub(/[[:space:]]*#.*$/, "", val)
+                        print val
+                        exit
+                    }
+                ' "$config_file")
+            fi
+        fi
+
+        if [ -n "$setup_script" ] && [ -f "$worktree_dir/package.json" ]; then
+            # Run setup in background
+            (
+                local status_file="$setup_status_dir/$repo"
+                if [ -n "$shell_wrapper" ]; then
+                    if bash -l -c "cd '$worktree_dir' && $shell_wrapper $setup_script" >/dev/null 2>&1; then
+                        echo "success" > "$status_file"
+                    else
+                        echo "failed" > "$status_file"
+                    fi
+                else
+                    cd "$worktree_dir"
+                    if eval "$setup_script" >/dev/null 2>&1; then
+                        echo "success" > "$status_file"
+                    else
+                        echo "failed" > "$status_file"
+                    fi
+                fi
+            ) &
+            setup_pids+=("$!:$repo")
+        fi
+    done
+
+    # Wait for all setup jobs and report results
+    for pid_repo in "${setup_pids[@]}"; do
+        local pid="${pid_repo%%:*}"
+        local repo="${pid_repo#*:}"
+        wait "$pid"
+        local status_file="$setup_status_dir/$repo"
+        if [ -f "$status_file" ] && [ "$(cat "$status_file")" = "success" ]; then
+            log_success "$repo → setup complete"
+        else
+            log_warning "$repo → setup failed (continuing anyway)"
+        fi
+    done
+
+    # Cleanup
+    rm -rf "$setup_status_dir"
+
+    # Handle database/Docker setup
     local db_port=""
     local db_container=""
-    if get_db_enabled; then
+    local docker_mode=false
+
+    if get_docker_enabled; then
+        # Docker mode: generate docker-compose.yaml, don't create standalone database
+        docker_mode=true
+        log_step "Docker mode enabled - generating docker-compose.yaml..."
+        source "$LIB_DIR/services-docker.sh"
+        local compose_file=$(generate_docker_compose "$feature_name")
+        if [ -n "$compose_file" ]; then
+            log_success "Generated $compose_file"
+        else
+            log_warning "Failed to generate docker-compose.yaml"
+        fi
+
+        # Calculate db_port for config (used by docker-compose)
+        local workspace_index=$(get_workspace_index "$feature_name")
+        local db_base_port=$(get_db_base_port)
+        db_port=$((db_base_port + workspace_index))
+    elif get_db_enabled; then
+        # Non-Docker mode: create standalone database container
         source "$LIB_DIR/database.sh"
-        create_feature_database "$feature_name"
-        db_port=$(get_feature_db_port "$feature_name")
+        db_port=$(create_feature_database "$feature_name")
         db_container="hyve-db-$feature_name"
     fi
+
+    # Calculate port offset for this workspace
+    local workspace_index=$(get_workspace_index "$feature_name")
+    local port_offset=$(yaml_get "$(find_config)" '.services.port_offset' '1000')
+    local base_port=$(yaml_get "$(find_config)" '.services.base_port' '4000')
+    local workspace_base=$((base_port + (workspace_index * port_offset)))
+    local config_file="$(find_config)"
+
+    # Helper function to get port for a service
+    get_service_port() {
+        local service=$1
+        if command -v yq &> /dev/null; then
+            local default_port=$(yq eval ".services.definitions.$service.default_port" "$config_file" 2>/dev/null)
+            if [ -n "$default_port" ] && [ "$default_port" != "null" ]; then
+                local offset=$((default_port - 3000))
+                echo $((workspace_base + offset))
+                return
+            fi
+        fi
+        echo ""
+    }
+
+    # Helper function to get the default (original) port for a service from config
+    get_service_default_port() {
+        local service=$1
+        if command -v yq &> /dev/null; then
+            local default_port=$(yq eval ".services.definitions.$service.default_port" "$config_file" 2>/dev/null)
+            if [ -n "$default_port" ] && [ "$default_port" != "null" ]; then
+                echo "$default_port"
+                return
+            fi
+        fi
+        echo ""
+    }
+
+    # Helper function to get all services defined in config
+    get_all_services() {
+        if command -v yq &> /dev/null; then
+            yq eval '.services.definitions | keys | .[]' "$config_file" 2>/dev/null | grep -v null || true
+        fi
+    }
+
+    # Create shared .env file at workspace root
+    # This allows services with envDir: "../.env" (like webapp) to read from parent
+    local shared_env="$workspace_dir/.env"
+    cat > "$shared_env" << ENVEOF
+# Hyve Workspace Environment
+# Workspace: $feature_name
+# Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+#
+# Shared environment file for all services in this workspace.
+# Individual services can override these in their own .env files.
+
+# Service Ports
+ENVEOF
+
+    # Add all service ports to shared file
+    if command -v yq &> /dev/null; then
+        local services=($(yq eval '.services.definitions | keys | .[]' "$config_file" 2>/dev/null))
+        for service in "${services[@]}"; do
+            local port=$(get_service_port "$service")
+            if [ -n "$port" ]; then
+                local upper_service=$(echo "$service" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+                echo "${upper_service}_PORT=$port" >> "$shared_env"
+            fi
+        done
+    fi
+
+    # Add API URLs for frontends
+    local server_port=$(get_service_port "server")
+    if [ -n "$server_port" ]; then
+        cat >> "$shared_env" << ENVEOF
+
+# API URLs for frontends
+API_BASE_URL=http://localhost:${server_port}
+VITE_API_BASE_URL=http://localhost:${server_port}
+ENVEOF
+    fi
+    local socketio_port=$(get_service_port "socketio")
+    if [ -n "$socketio_port" ]; then
+        cat >> "$shared_env" << ENVEOF
+SOCKET_URL=http://localhost:${socketio_port}
+VITE_SOCKET_URL=http://localhost:${socketio_port}
+ENVEOF
+    fi
+
+    # Add database config to shared file
+    if [ -n "$db_port" ]; then
+        local db_user=$(get_db_user)
+        local db_pass=$(get_db_password)
+        local db_name=$(get_db_name)
+        cat >> "$shared_env" << ENVEOF
+
+# Database
+DATABASE_URL=postgresql://${db_user}:${db_pass}@localhost:${db_port}/${db_name}
+POSTGRES_PORT=$db_port
+ENVEOF
+    fi
+
+    # Generate .env files from main repo with workspace-specific port overrides
+    echo ""
+    log_step "Generating .env files..."
+    for repo in "${created_repos[@]}"; do
+        local repo_path=$(get_repo_path "$repo")
+        local worktree_dir="$workspace_dir/$repo"
+        local env_example="$worktree_dir/.env.example"
+        local main_env="$repo_path/.env"
+        local env_file="$worktree_dir/.env"
+
+        # Priority: 1) Copy .env from main repo, 2) Copy .env.example, 3) Create empty
+        if [ -f "$main_env" ]; then
+            cp "$main_env" "$env_file"
+            log_success "$repo/.env copied from main repo"
+        elif [ -f "$env_example" ]; then
+            cp "$env_example" "$env_file"
+            log_success "$repo/.env created from .env.example"
+        else
+            touch "$env_file"
+            log_info "$repo/.env created (no .env found)"
+        fi
+
+        # Calculate workspace-specific values
+        local repo_port=$(get_service_port "$repo")
+        local db_user=$(get_db_user)
+        local db_pass=$(get_db_password)
+        local db_name=$(get_db_name)
+        local new_db_url="postgresql://${db_user}:${db_pass}@localhost:${db_port}/${db_name}"
+
+        # Replace DATABASE_URL with workspace database port
+        if [ -n "$db_port" ]; then
+            # Use sed to replace existing DATABASE_URL or POSTGRES_PORT
+            if grep -q "^DATABASE_URL=" "$env_file" 2>/dev/null; then
+                sed -i.bak "s|^DATABASE_URL=.*|DATABASE_URL=${new_db_url}|" "$env_file"
+                rm -f "$env_file.bak"
+            fi
+            if grep -q "^POSTGRES_PORT=" "$env_file" 2>/dev/null; then
+                sed -i.bak "s|^POSTGRES_PORT=.*|POSTGRES_PORT=${db_port}|" "$env_file"
+                rm -f "$env_file.bak"
+            fi
+        fi
+
+        # Replace PORT with workspace-specific port
+        if [ -n "$repo_port" ]; then
+            if grep -q "^PORT=" "$env_file" 2>/dev/null; then
+                sed -i.bak "s|^PORT=.*|PORT=${repo_port}|" "$env_file"
+                rm -f "$env_file.bak"
+            fi
+        fi
+
+        # Replace all service ports generically based on config
+        # Iterates over all services in .hyve.yaml and replaces localhost:default_port with localhost:workspace_port
+        for service in $(get_all_services); do
+            local svc_default_port=$(get_service_default_port "$service")
+            local svc_workspace_port=$(get_service_port "$service")
+            if [ -n "$svc_default_port" ] && [ -n "$svc_workspace_port" ] && [ "$svc_default_port" != "$svc_workspace_port" ]; then
+                sed -i.bak "s|localhost:${svc_default_port}|localhost:${svc_workspace_port}|g" "$env_file"
+                rm -f "$env_file.bak"
+            fi
+        done
+
+        # Append hyve workspace marker and any missing configs
+        cat >> "$env_file" << ENVEOF
+
+# ===== Hyve Workspace Configuration =====
+# Workspace: $feature_name
+# Ports updated for workspace isolation
+ENVEOF
+
+        # Add PORT if not already in file
+        if [ -n "$repo_port" ] && ! grep -q "^PORT=" "$env_file" 2>/dev/null; then
+            echo "PORT=$repo_port" >> "$env_file"
+        fi
+
+        # Add DATABASE_URL if not already in file
+        if [ -n "$db_port" ] && ! grep -q "^DATABASE_URL=" "$env_file" 2>/dev/null; then
+            echo "DATABASE_URL=${new_db_url}" >> "$env_file"
+            echo "POSTGRES_PORT=${db_port}" >> "$env_file"
+        fi
+    done
 
     # Create workspace config
     local repos_json=$(printf '"%s",' "${created_repos[@]}" | sed 's/,$//')
@@ -243,6 +618,9 @@ cmd_create() {
     "name": "$feature_name",
     "branch": "$branch_name",
     "repos": [$repos_json],
+    "docker": {
+        "enabled": $($docker_mode && echo "true" || echo "false")
+    },
     "database": {
         "enabled": $(get_db_enabled && echo "true" || echo "false"),
         "port": ${db_port:-null},
@@ -317,8 +695,15 @@ EOF
         echo -e "  ${DIM}Database:${NC}  localhost:$db_port"
     fi
     echo ""
-    echo -e "  ${DIM}cd${NC} $workspace_dir"
-    echo ""
+
+    if $docker_mode; then
+        echo -e "  ${CYAN}${BOLD}Docker Mode${NC} - Start services with:"
+        echo -e "  ${DIM}hyve up${NC} $feature_name"
+        echo ""
+    else
+        echo -e "  ${DIM}cd${NC} $workspace_dir"
+        echo ""
+    fi
 }
 
 # List workspaces
@@ -505,11 +890,51 @@ cmd_stop() {
 
 # Cleanup workspace
 cmd_cleanup() {
-    local feature_name=$1
+    local feature_name=""
+    local force=false
 
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -f|--force)
+                force=true
+                shift
+                ;;
+            *)
+                if [ -z "$feature_name" ]; then
+                    feature_name="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # Interactive selection if no feature name provided
     if [ -z "$feature_name" ]; then
-        log_error "Feature name required"
-        exit 1
+        echo ""
+        print_logo
+        echo ""
+
+        # Get list of existing workspaces
+        local workspaces_dir=$(get_workspaces_dir)
+        local workspaces=()
+        if [ -d "$workspaces_dir" ]; then
+            while IFS= read -r dir; do
+                [ -n "$dir" ] && workspaces+=("$(basename "$dir")")
+            done < <(find "$workspaces_dir" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
+        fi
+
+        if [ ${#workspaces[@]} -eq 0 ]; then
+            log_error "No workspaces found"
+            exit 1
+        fi
+
+        # Use arrow-key interactive selector
+        feature_name=$(interactive_select "Select workspace to remove (↑/↓, Enter to confirm, q to quit):" "${workspaces[@]}") || {
+            log_info "Cancelled"
+            exit 0
+        }
+        echo ""
     fi
 
     if ! workspace_exists "$feature_name"; then
@@ -529,12 +954,13 @@ cmd_cleanup() {
     echo "  - Workspace directory"
     echo ""
 
-    if ! confirm "Are you sure?"; then
-        log_info "Cancelled"
-        return
+    if ! $force; then
+        if ! confirm "Are you sure?"; then
+            log_info "Cancelled"
+            return
+        fi
+        echo ""
     fi
-
-    echo ""
 
     # Stop and remove database
     local db_container=$(jq -r '.database.container // empty' "$config" 2>/dev/null)
@@ -544,18 +970,41 @@ cmd_cleanup() {
         log_success "Database removed"
     fi
 
-    # Remove worktrees
+    # Remove worktrees IN PARALLEL (each repo is independent)
     local repos=$(jq -r '.repos[]' "$config" 2>/dev/null)
-    for repo in $repos; do
-        local repo_dir="$workspace_dir/$repo"
-        local main_repo=$(get_repo_path "$repo")
+    local cleanup_pids=()
+    local cleanup_status_dir=$(mktemp -d)
 
-        if [ -d "$main_repo/.git" ] || [ -f "$main_repo/.git" ]; then
-            log_step "Removing worktree: $repo"
-            cd "$main_repo"
-            git worktree remove "$repo_dir" --force 2>/dev/null || true
+    log_step "Removing worktrees (parallel)..."
+    for repo in $repos; do
+        (
+            local repo_dir="$workspace_dir/$repo"
+            local main_repo=$(get_repo_path "$repo")
+            local status_file="$cleanup_status_dir/$repo"
+
+            if [ -d "$main_repo/.git" ] || [ -f "$main_repo/.git" ]; then
+                cd "$main_repo"
+                git worktree remove "$repo_dir" --force 2>/dev/null || true
+                git worktree prune 2>/dev/null || true
+                echo "success" > "$status_file"
+            else
+                echo "skipped" > "$status_file"
+            fi
+        ) &
+        cleanup_pids+=("$!:$repo")
+    done
+
+    # Wait for all cleanup jobs
+    for pid_repo in "${cleanup_pids[@]}"; do
+        local pid="${pid_repo%%:*}"
+        local repo="${pid_repo#*:}"
+        wait "$pid"
+        local status_file="$cleanup_status_dir/$repo"
+        if [ -f "$status_file" ] && [ "$(cat "$status_file")" = "success" ]; then
+            log_success "$repo worktree removed"
         fi
     done
+    rm -rf "$cleanup_status_dir"
 
     # Remove workspace directory
     rm -rf "$workspace_dir"
@@ -580,6 +1029,67 @@ cmd_shell() {
     local workspace_dir=$(get_workspace_dir "$feature_name")
     cd "$workspace_dir"
     exec $SHELL
+}
+
+# Install dependencies (remove symlinks, run pnpm install)
+cmd_install() {
+    local feature_name=$1
+
+    if [ -z "$feature_name" ]; then
+        log_error "Feature name required"
+        echo "Usage: hyve install <feature-name>"
+        exit 1
+    fi
+
+    if ! workspace_exists "$feature_name"; then
+        log_error "Workspace not found: $feature_name"
+        exit 1
+    fi
+
+    local workspace_dir=$(get_workspace_dir "$feature_name")
+    local config=$(get_workspace_config "$feature_name")
+    local repos=$(jq -r '.repos[]' "$config")
+
+    echo ""
+    print_logo
+    echo ""
+    log_info "Installing dependencies for ${BOLD}$feature_name${NC}"
+    echo ""
+
+    for repo in $repos; do
+        local repo_dir="$workspace_dir/$repo"
+
+        if [ ! -d "$repo_dir" ]; then
+            continue
+        fi
+
+        log_step "Installing ${BOLD}$repo${NC}..."
+
+        # Remove symlinked node_modules if exists
+        if [ -L "$repo_dir/node_modules" ]; then
+            rm "$repo_dir/node_modules"
+            log_info "  Removed node_modules symlink"
+        fi
+
+        # Remove nested symlinks too
+        for subdir in "$repo_dir"/*/; do
+            if [ -L "$subdir/node_modules" ]; then
+                rm "$subdir/node_modules"
+            fi
+        done
+
+        # Run pnpm install
+        cd "$repo_dir"
+        if pnpm install; then
+            log_success "$repo dependencies installed"
+        else
+            log_error "Failed to install $repo dependencies"
+        fi
+        echo ""
+    done
+
+    log_success "All dependencies installed"
+    echo ""
 }
 
 # Connect to workspace database
