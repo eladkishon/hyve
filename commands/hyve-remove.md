@@ -1,4 +1,4 @@
-# Cleanup Hyve Workspace
+# Remove Hyve Workspace
 
 Remove the workspace: **$ARGUMENTS**
 
@@ -12,7 +12,7 @@ Remove the workspace: **$ARGUMENTS**
 ## Command
 
 ```bash
-hyve cleanup $ARGUMENTS
+hyve remove $ARGUMENTS
 ```
 
 ## Confirmation

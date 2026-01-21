@@ -1,23 +1,29 @@
 #!/usr/bin/env node
-
-// src/index.ts
-import { Command as Command11 } from "commander";
-import chalk11 from "chalk";
-
-// src/commands/create.ts
-import { Command } from "commander";
-import * as p from "@clack/prompts";
-import chalk from "chalk";
-import { execSync } from "child_process";
-import { existsSync as existsSync3, mkdirSync, writeFileSync, readFileSync as readFileSync3, copyFileSync } from "fs";
-import { join as join3 } from "path";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/config.ts
 import { readFileSync, existsSync } from "fs";
 import { parse } from "yaml";
 import { join, dirname } from "path";
-var cachedConfig = null;
-var cachedConfigPath = null;
 function findConfigFile(startDir = process.cwd()) {
   let dir = startDir;
   while (dir !== "/") {
@@ -87,8 +93,25 @@ function getRepoPath(repoName) {
   }
   return join(projectRoot, repoConfig.path);
 }
+var cachedConfig, cachedConfigPath;
+var init_config = __esm({
+  "src/config.ts"() {
+    "use strict";
+    cachedConfig = null;
+    cachedConfigPath = null;
+  }
+});
 
 // src/utils.ts
+var utils_exports = {};
+__export(utils_exports, {
+  calculateServicePort: () => calculateServicePort,
+  getWorkspaceConfig: () => getWorkspaceConfig,
+  getWorkspaceIndex: () => getWorkspaceIndex,
+  listWorkspaces: () => listWorkspaces,
+  sanitizeBranchName: () => sanitizeBranchName,
+  workspaceExists: () => workspaceExists
+});
 import { existsSync as existsSync2, readdirSync, readFileSync as readFileSync2 } from "fs";
 import { join as join2 } from "path";
 function listWorkspaces() {
@@ -121,8 +144,26 @@ function getWorkspaceIndex(name) {
   const index = workspaces.indexOf(name);
   return index >= 0 ? index : workspaces.length;
 }
+var init_utils = __esm({
+  "src/utils.ts"() {
+    "use strict";
+    init_config();
+  }
+});
+
+// src/index.ts
+import { Command as Command13 } from "commander";
+import chalk13 from "chalk";
 
 // src/commands/create.ts
+init_config();
+init_utils();
+import { Command } from "commander";
+import * as p from "@clack/prompts";
+import chalk from "chalk";
+import { execSync } from "child_process";
+import { existsSync as existsSync3, mkdirSync, writeFileSync, readFileSync as readFileSync3, copyFileSync } from "fs";
+import { join as join3 } from "path";
 function generateClaudeMd(name, branch, repos, dbPort, servicePorts, workspaceDir) {
   const lines = [];
   lines.push(`# Hyve Workspace: ${name}`);
@@ -166,8 +207,8 @@ function generateClaudeMd(name, branch, repos, dbPort, servicePorts, workspaceDi
   lines.push(`# Check status`);
   lines.push(`hyve status ${name}`);
   lines.push("");
-  lines.push(`# Cleanup when done`);
-  lines.push(`hyve cleanup ${name}`);
+  lines.push(`# Remove workspace when done`);
+  lines.push(`hyve remove ${name}`);
   lines.push("```");
   lines.push("");
   lines.push("## Working in This Workspace");
@@ -177,6 +218,23 @@ function generateClaudeMd(name, branch, repos, dbPort, servicePorts, workspaceDi
   lines.push("");
   lines.push("The `.env` files have been configured with workspace-specific ports.");
   lines.push("You can run the full stack without conflicting with other workspaces.");
+  lines.push("");
+  lines.push("## Multi-Repo Orchestration");
+  lines.push("");
+  lines.push("When working across multiple repos:");
+  lines.push("");
+  lines.push("1. **Analyze** which repos need changes for the task");
+  lines.push("2. **Order** changes correctly: backend/API first \u2192 schema/types \u2192 frontend");
+  lines.push("3. **Coordinate** commits with cross-references between repos");
+  lines.push("4. **Checkpoint** before committing - summarize changes and wait for approval");
+  lines.push("");
+  lines.push("### Cross-Repo Rules");
+  lines.push("");
+  lines.push("- API changes: Update backend first, regenerate types, then update consumers");
+  lines.push("- Database changes: Run migrations before dependent code changes");
+  lines.push("- Shared types: Update source, regenerate, then update consumers");
+  lines.push("");
+  lines.push("**DO NOT COMMIT without user approval.**");
   lines.push("");
   return lines.join("\n");
 }
@@ -216,6 +274,16 @@ var createCommand = new Command("create").description("Create a new feature work
   const branchName = `${config.branches.prefix}${name}`;
   const workspaceDir = getWorkspaceDir(name);
   console.log(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
+  console.log(chalk.dim("Pruning stale worktrees..."));
+  for (const repo of allRepos) {
+    try {
+      const repoPath = getRepoPath(repo);
+      if (existsSync3(repoPath)) {
+        execSync("git worktree prune", { cwd: repoPath, stdio: "ignore" });
+      }
+    } catch {
+    }
+  }
   mkdirSync(workspaceDir, { recursive: true });
   console.log(chalk.dim("Creating git worktrees..."));
   const successfulRepos = [];
@@ -267,16 +335,37 @@ var createCommand = new Command("create").description("Create a new feature work
         } catch {
         }
       }
-      if (branchExists || options.from) {
-        execSync(`git worktree add "${worktreeDir}" "${branchName}"`, {
-          cwd: repoPath,
-          stdio: "ignore"
-        });
-      } else {
-        execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}"`, {
-          cwd: repoPath,
-          stdio: "ignore"
-        });
+      try {
+        if (branchExists || options.from) {
+          execSync(`git worktree add "${worktreeDir}" "${branchName}" 2>&1`, {
+            cwd: repoPath,
+            encoding: "utf-8"
+          });
+        } else {
+          execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}" 2>&1`, {
+            cwd: repoPath,
+            encoding: "utf-8"
+          });
+        }
+      } catch (wtError) {
+        const output = wtError.stdout || wtError.stderr || wtError.message || "";
+        if (output.includes("already checked out") || output.includes("is already being used")) {
+          try {
+            execSync("git worktree prune", { cwd: repoPath, stdio: "ignore" });
+            execSync(`git worktree add --force "${worktreeDir}" "${branchName}" 2>&1`, {
+              cwd: repoPath,
+              encoding: "utf-8"
+            });
+          } catch (retryError) {
+            const retryOutput = retryError.stdout || retryError.stderr || "";
+            throw new Error(retryOutput.split("\n").filter(Boolean).pop() || "Branch in use elsewhere");
+          }
+        } else if (output.includes("already exists")) {
+          throw new Error(`Worktree path already exists`);
+        } else {
+          const errorLine = output.split("\n").filter((l) => l.trim() && !l.includes("Preparing")).pop();
+          throw new Error(errorLine || output.slice(0, 100) || "git worktree failed");
+        }
       }
       console.log(chalk.green(`  \u2713 ${repo}`) + chalk.dim(` \u2192 ${branchName}`));
       successfulRepos.push(repo);
@@ -450,6 +539,7 @@ ${envContent}`;
     join3(projectRoot, ".code-workspace"),
     join3(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`)
   ];
+  const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
   for (const vscodeFile of vscodeWorkspaceFiles) {
     if (existsSync3(vscodeFile)) {
       try {
@@ -459,16 +549,12 @@ ${envContent}`;
           let added = false;
           for (const repo of successfulRepos) {
             const folderPath = `${workspaceRelPath}/${repo}`;
-            const folderName = `[${name}] ${repo}`;
+            const folderName = `[${featureId}] ${repo}`;
             const exists = vscodeContent.folders.some(
               (f) => f.path === folderPath || f.name === folderName
             );
             if (!exists) {
-              const dotIndex = vscodeContent.folders.findIndex(
-                (f) => f.path === "."
-              );
-              const insertIndex = dotIndex !== -1 ? dotIndex : vscodeContent.folders.length;
-              vscodeContent.folders.splice(insertIndex, 0, {
+              vscodeContent.folders.push({
                 name: folderName,
                 path: folderPath
               });
@@ -515,13 +601,15 @@ ${envContent}`;
 });
 
 // src/commands/cleanup.ts
+init_config();
+init_utils();
 import { Command as Command2 } from "commander";
 import * as p2 from "@clack/prompts";
 import chalk2 from "chalk";
 import { execSync as execSync2 } from "child_process";
 import { rmSync, existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "fs";
 import { join as join4 } from "path";
-var cleanupCommand = new Command2("cleanup").description("Remove a workspace").argument("[name]", "Workspace name").option("-f, --force", "Skip confirmation").action(async (name, options) => {
+var cleanupCommand = new Command2("remove").alias("cleanup").alias("rm").description("Remove a workspace").argument("[name]", "Workspace name").option("-f, --force", "Skip confirmation").action(async (name, options) => {
   const workspaces = listWorkspaces();
   if (workspaces.length === 0) {
     p2.log.error("No workspaces found");
@@ -563,6 +651,7 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
     }
   }
   const repos = config?.repos || [];
+  console.log(chalk2.dim("  Removing worktrees..."));
   for (const repo of repos) {
     try {
       const mainRepoPath = getRepoPath(repo);
@@ -572,10 +661,13 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
           cwd: mainRepoPath,
           stdio: "ignore"
         });
+        console.log(chalk2.green(`    \u2713 ${repo}`));
       }
     } catch {
+      console.log(chalk2.yellow(`    \u26A0 ${repo} (may not exist)`));
     }
   }
+  console.log(chalk2.dim("  Pruning git worktrees..."));
   for (const repo of repos) {
     try {
       const mainRepoPath = getRepoPath(repo);
@@ -585,6 +677,7 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
     } catch {
     }
   }
+  console.log(chalk2.green("  \u2713 Worktrees pruned"));
   const projectRoot = getProjectRoot();
   const vscodeWorkspaceFiles = [
     join4(projectRoot, "code-workspace.code-workspace"),
@@ -597,11 +690,14 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
         const vscodeContent = JSON.parse(readFileSync4(vscodeFile, "utf-8"));
         if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
           const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
+          const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
           const originalLength = vscodeContent.folders.length;
           vscodeContent.folders = vscodeContent.folders.filter(
             (f) => {
               if (f.path?.startsWith(workspaceRelPath + "/")) return false;
-              if (f.name?.startsWith(`[${name}]`)) return false;
+              if (f.name?.startsWith(`[${featureId}]`)) return false;
+              if (f.name?.includes(`[${featureId}]`)) return false;
+              if (f.name?.includes(`\u2B21 ${featureId}`)) return false;
               return true;
             }
           );
@@ -615,11 +711,16 @@ var cleanupCommand = new Command2("cleanup").description("Remove a workspace").a
       break;
     }
   }
+  console.log(chalk2.dim("  Removing workspace directory..."));
   rmSync(workspaceDir, { recursive: true, force: true });
-  console.log(chalk2.green(`\u2713 Workspace "${name}" removed`));
+  console.log(chalk2.green("  \u2713 Directory removed"));
+  console.log();
+  console.log(chalk2.green.bold(`\u2713 Workspace "${name}" removed`));
+  console.log(chalk2.dim("  Git branches preserved in main repos"));
 });
 
 // src/commands/list.ts
+init_utils();
 import { Command as Command3 } from "commander";
 import chalk3 from "chalk";
 var listCommand = new Command3("list").alias("ls").description("List all workspaces").action(async () => {
@@ -648,6 +749,8 @@ var listCommand = new Command3("list").alias("ls").description("List all workspa
 });
 
 // src/commands/status.ts
+init_config();
+init_utils();
 import { Command as Command4 } from "commander";
 import * as p3 from "@clack/prompts";
 import chalk4 from "chalk";
@@ -725,6 +828,8 @@ var statusCommand = new Command4("status").description("Show workspace status").
 });
 
 // src/commands/run.ts
+init_config();
+init_utils();
 import { Command as Command5 } from "commander";
 import * as p4 from "@clack/prompts";
 import chalk5 from "chalk";
@@ -1289,6 +1394,8 @@ async function startFileWatcher(_workspaceName, config, workspaceDir, runningSer
 }
 
 // src/commands/halt.ts
+init_config();
+init_utils();
 import { Command as Command6 } from "commander";
 import * as p5 from "@clack/prompts";
 import chalk6 from "chalk";
@@ -1380,6 +1487,8 @@ var haltCommand = new Command6("halt").alias("stop").description("Stop all servi
 });
 
 // src/commands/db.ts
+init_config();
+init_utils();
 import { Command as Command7 } from "commander";
 import * as p6 from "@clack/prompts";
 import chalk7 from "chalk";
@@ -1436,6 +1545,7 @@ var dbCommand = new Command7("db").description("Connect to workspace database").
 });
 
 // src/commands/install-commands.ts
+init_config();
 import { Command as Command8 } from "commander";
 import chalk8 from "chalk";
 import { existsSync as existsSync7, mkdirSync as mkdirSync3, copyFileSync as copyFileSync2, readdirSync as readdirSync2 } from "fs";
@@ -1483,6 +1593,7 @@ var installCommandsCommand = new Command8("install-commands").description("Insta
 });
 
 // src/commands/agent.ts
+init_config();
 import { Command as Command9 } from "commander";
 import chalk9 from "chalk";
 import { existsSync as existsSync8, readFileSync as readFileSync6, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
@@ -1606,6 +1717,8 @@ function timeSince(date) {
 }
 
 // src/commands/attach.ts
+init_config();
+init_utils();
 import { Command as Command10 } from "commander";
 import * as p7 from "@clack/prompts";
 import chalk10 from "chalk";
@@ -1862,21 +1975,480 @@ ${envContent}`;
   console.log();
 });
 
+// src/commands/work.ts
+init_config();
+init_utils();
+import { Command as Command11 } from "commander";
+import chalk11 from "chalk";
+import { execSync as execSync5, spawnSync as spawnSync2 } from "child_process";
+import { existsSync as existsSync10, readFileSync as readFileSync8, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5 } from "fs";
+import { join as join10 } from "path";
+
+// src/prompts/meta-agent.ts
+function buildMetaAgentPrompt(config) {
+  const repoList = config.repos.map((r) => `  - ${r}: ${config.workspaceDir}/${r}`).join("\n");
+  return `# Hyve Meta-Agent: Workspace Orchestrator
+
+You are the **orchestrator** for Hyve workspace: \`${config.workspaceName}\`
+
+## Your Role
+
+You coordinate work across multiple repositories. You can:
+1. **Analyze** the task and determine which repos need changes
+2. **Spawn sub-agents** to work on individual repos in parallel
+3. **Coordinate** changes that span multiple repos (API changes, schema updates, etc.)
+4. **Track status** of all work being done
+5. **Checkpoint** before any commits - get user approval
+
+## Workspace Info
+
+- **Workspace:** ${config.workspaceName}
+- **Branch:** ${config.branch}
+- **Location:** ${config.workspaceDir}
+${config.dbPort ? `- **Database:** localhost:${config.dbPort}` : ""}
+
+## Repositories
+
+${repoList}
+
+## Task
+
+${config.task}
+
+## Orchestration Protocol
+
+### Phase 1: Analysis
+1. Read the task carefully
+2. Explore relevant code in each repo to understand the scope
+3. Determine which repos need changes
+4. Identify dependencies between repos (e.g., backend API \u2192 frontend consumer)
+
+### Phase 2: Planning
+1. Break down the task by repo
+2. Identify the correct order of changes:
+   - Backend/API changes first
+   - Schema/type generation
+   - Frontend/consumer changes after
+3. Present your plan to the user for approval
+
+### Phase 3: Execution
+For each repo that needs work, you can either:
+
+**Option A: Work directly** (for small changes)
+- Make changes yourself in the repo directory
+
+**Option B: Spawn sub-agent** (for complex repo-specific work)
+Use the Task tool to spawn a sub-agent:
+\`\`\`
+Task tool with:
+- subagent_type: "general-purpose"
+- prompt: "Work in repo X on task Y..."
+- run_in_background: true (if parallel work is safe)
+\`\`\`
+
+### Phase 4: Coordination
+1. After backend changes, regenerate types/schemas if needed
+2. Ensure frontend changes use updated types
+3. Run tests in each repo
+4. Coordinate commit messages across repos
+
+### Phase 5: Checkpoint
+Before ANY commits:
+1. Summarize all changes per repo
+2. Show files modified
+3. Show test results
+4. Propose commit messages
+5. **WAIT for user approval**
+
+## Status Tracking
+
+Report status regularly:
+\`\`\`
+\u{1F4CA} Workspace Status: ${config.workspaceName}
+\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
+[repo-name]     \u2713 Complete / \u23F3 In Progress / \u23F8 Waiting
+  \u2514\u2500 Brief description of status
+\`\`\`
+
+## Cross-Repo Coordination Rules
+
+1. **API Changes**: Always update backend first, then run codegen, then update consumers
+2. **Database Changes**: Run migrations before dependent code changes
+3. **Shared Types**: Update source of truth, regenerate, then update consumers
+4. **Breaking Changes**: Coordinate version bumps across repos
+
+## Commands Available
+
+- \`hyve status ${config.workspaceName}\` - Check workspace status
+- \`hyve run ${config.workspaceName}\` - Start services
+- \`hyve halt ${config.workspaceName}\` - Stop services
+
+## Important
+
+- You are the coordinator - maintain awareness of ALL repos
+- Don't let sub-agents commit without your approval
+- Always checkpoint before commits
+- Keep the user informed of progress
+`;
+}
+
+// src/commands/work.ts
+var workCommand = new Command11("work").description("Start working on a feature - creates workspace, starts services, launches Claude").argument("<name>", "Feature name (spaces become dashes)").argument("[task...]", "Task description for the agent").option("--no-run", "Don't start services").option("--no-agent", "Don't launch Claude Code agent").action(async (name, taskParts, options) => {
+  const workspaceName = sanitizeBranchName(name);
+  const task = taskParts.join(" ");
+  console.log(chalk11.dim(`Feature: "${name}"`));
+  console.log(chalk11.dim(`Workspace: ${workspaceName}`));
+  if (task) {
+    console.log(chalk11.dim(`Task: "${task}"`));
+  }
+  console.log();
+  const workspaceDir = getWorkspaceDir(workspaceName);
+  if (!workspaceExists(workspaceName)) {
+    console.log(chalk11.yellow(`Workspace doesn't exist. Creating...`));
+    console.log();
+    try {
+      execSync5(`hyve create "${workspaceName}"`, {
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.error(chalk11.red(`Failed to create workspace: ${error.message}`));
+      process.exit(1);
+    }
+    if (!workspaceExists(workspaceName)) {
+      console.error(chalk11.red(`Workspace creation failed - directory not found`));
+      process.exit(1);
+    }
+  } else {
+    console.log(chalk11.green(`\u2713 Using existing workspace: ${workspaceName}`));
+  }
+  const config = getWorkspaceConfig(workspaceName);
+  if (!config) {
+    console.error(chalk11.red(`Invalid workspace - no .hyve-workspace.json found`));
+    console.log(chalk11.dim(`Try removing and recreating: hyve remove ${workspaceName}`));
+    process.exit(1);
+  }
+  console.log();
+  console.log(chalk11.dim("Branch: ") + config.branch);
+  console.log(chalk11.dim("Repos:  ") + config.repos.join(", "));
+  if (config.database?.enabled) {
+    console.log(chalk11.dim("DB:     ") + `localhost:${config.database.port}`);
+  }
+  const missingRepos = config.repos.filter((repo) => !existsSync10(join10(workspaceDir, repo)));
+  if (missingRepos.length > 0) {
+    console.error(chalk11.red(`
+Missing repos: ${missingRepos.join(", ")}`));
+    console.log(chalk11.dim(`The workspace is incomplete. Try: hyve remove ${workspaceName} && hyve create ${workspaceName}`));
+    process.exit(1);
+  }
+  if (options.run !== false) {
+    console.log();
+    console.log(chalk11.dim("Starting services..."));
+    try {
+      execSync5(`hyve run "${workspaceName}"`, {
+        stdio: "inherit"
+      });
+    } catch (error) {
+      console.log(chalk11.yellow(`Services may already be running or failed to start`));
+    }
+  }
+  if (options.agent !== false && task) {
+    console.log();
+    console.log(chalk11.cyan.bold("Launching Claude Code Meta-Agent..."));
+    console.log();
+    let servicePorts = {};
+    try {
+      const hyveConfig = loadConfig();
+      const workspaceIndex = (init_utils(), __toCommonJS(utils_exports)).getWorkspaceIndex(workspaceName);
+      for (const [serviceName, serviceConfig] of Object.entries(hyveConfig.services.definitions)) {
+        servicePorts[serviceName] = calculateServicePort(
+          serviceName,
+          serviceConfig.default_port,
+          hyveConfig.services.base_port,
+          workspaceIndex,
+          hyveConfig.services.port_offset
+        );
+      }
+    } catch {
+    }
+    const prompt = buildMetaAgentPrompt({
+      workspaceName,
+      workspaceDir,
+      branch: config?.branch || "feature/" + workspaceName,
+      repos: config?.repos || [],
+      task,
+      dbPort: config?.database?.enabled ? config.database.port : void 0,
+      servicePorts
+    });
+    const promptFile = join10(workspaceDir, ".hyve", "current-task.md");
+    const hyveDir = join10(workspaceDir, ".hyve");
+    if (!existsSync10(hyveDir)) {
+      mkdirSync5(hyveDir, { recursive: true });
+    }
+    writeFileSync6(promptFile, prompt);
+    try {
+      console.log(chalk11.dim(`Task saved to: ${promptFile}`));
+      console.log();
+      const claudeMdPath = join10(workspaceDir, "CLAUDE.md");
+      let existingClaudeMd = "";
+      if (existsSync10(claudeMdPath)) {
+        existingClaudeMd = readFileSync8(claudeMdPath, "utf-8");
+      }
+      if (existingClaudeMd.includes("## Current Task")) {
+        existingClaudeMd = existingClaudeMd.replace(
+          /## Current Task\n\n[\s\S]*?(?=\n##|$)/,
+          `## Current Task
+
+${task}
+`
+        );
+        writeFileSync6(claudeMdPath, existingClaudeMd);
+      } else {
+        const taskSection = `
+## Current Task
+
+${task}
+`;
+        writeFileSync6(claudeMdPath, existingClaudeMd + taskSection);
+      }
+      console.log(chalk11.cyan.bold("Launching Claude Code..."));
+      console.log();
+      const result = spawnSync2("claude", [], {
+        cwd: workspaceDir,
+        stdio: "inherit"
+      });
+      if (result.error) {
+        console.error(chalk11.red(`Failed to launch Claude: ${result.error.message}`));
+        console.log(chalk11.dim("Make sure Claude Code CLI is installed: npm install -g @anthropic-ai/claude-code"));
+      }
+    } catch (error) {
+      console.error(chalk11.red(`Failed to launch Claude: ${error.message}`));
+    }
+  } else if (!task) {
+    console.log();
+    console.log(chalk11.green.bold("Workspace ready!"));
+    console.log();
+    console.log(chalk11.dim("Workspace: ") + workspaceDir);
+    console.log();
+    console.log(chalk11.dim("To start working with Claude:"));
+    console.log(chalk11.cyan(`  cd ${workspaceDir}`));
+    console.log(chalk11.cyan(`  claude`));
+    console.log();
+    console.log(chalk11.dim("Or run with a task:"));
+    console.log(chalk11.cyan(`  hyve work "${name}" "Your task description here"`));
+    console.log();
+  }
+});
+
+// src/commands/dashboard.ts
+init_config();
+init_utils();
+import { Command as Command12 } from "commander";
+import chalk12 from "chalk";
+import { existsSync as existsSync11, readFileSync as readFileSync9 } from "fs";
+import { join as join11 } from "path";
+import { execSync as execSync6 } from "child_process";
+function getAgentFile2() {
+  const projectRoot = getProjectRoot();
+  return join11(projectRoot, ".hyve", "agents.json");
+}
+function loadAgents2() {
+  const file = getAgentFile2();
+  if (!existsSync11(file)) {
+    return [];
+  }
+  try {
+    return JSON.parse(readFileSync9(file, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+function isProcessRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function timeSince2(date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1e3);
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+function getGitStatus(repoDir) {
+  try {
+    const status = execSync6("git status --porcelain", {
+      cwd: repoDir,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"]
+    });
+    const lines = status.trim().split("\n").filter(Boolean);
+    let modified = 0, staged = 0, untracked = 0;
+    for (const line of lines) {
+      if (line.startsWith("??")) untracked++;
+      else if (line.startsWith(" M") || line.startsWith(" D")) modified++;
+      else if (line.startsWith("M") || line.startsWith("A") || line.startsWith("D")) staged++;
+    }
+    return { modified, staged, untracked };
+  } catch {
+    return { modified: 0, staged: 0, untracked: 0 };
+  }
+}
+var dashboardCommand = new Command12("dashboard").alias("dash").description("Show overview of all workspaces and agent activity").option("-w, --workspace <name>", "Show detailed view for specific workspace").action((options) => {
+  if (options.workspace) {
+    showWorkspaceDetail(options.workspace);
+  } else {
+    showOverview();
+  }
+});
+function showOverview() {
+  const workspaces = listWorkspaces();
+  const agents = loadAgents2();
+  console.log();
+  console.log(chalk12.red("\u2B21") + chalk12.bold(" Hyve Dashboard"));
+  console.log(chalk12.dim("\u2501".repeat(60)));
+  console.log();
+  if (workspaces.length === 0) {
+    console.log(chalk12.dim("  No active workspaces"));
+    console.log();
+    console.log(chalk12.dim('  Create one with: hyve work "Feature Name" "Task description"'));
+    return;
+  }
+  for (const ws of workspaces) {
+    const config = getWorkspaceConfig(ws);
+    const wsAgents = agents.filter((a) => a.workspace === ws);
+    const workspaceDir = getWorkspaceDir(ws);
+    const taskFile = join11(workspaceDir, ".hyve", "current-task.md");
+    const hasActiveTask = existsSync11(taskFile);
+    let statusIcon = chalk12.green("\u25CF");
+    let statusText = "idle";
+    if (wsAgents.some((a) => a.pid && isProcessRunning(a.pid))) {
+      statusIcon = chalk12.cyan("\u25C9");
+      statusText = "agent active";
+    } else if (hasActiveTask) {
+      statusIcon = chalk12.yellow("\u25CB");
+      statusText = "task pending";
+    }
+    console.log(`${statusIcon} ${chalk12.bold(ws)} ${chalk12.dim(`(${statusText})`)}`);
+    if (config) {
+      console.log(chalk12.dim(`  Branch: ${config.branch}`));
+      console.log(chalk12.dim(`  Repos:  ${config.repos.join(", ")}`));
+      for (const repo of config.repos) {
+        const repoDir = join11(workspaceDir, repo);
+        if (existsSync11(repoDir)) {
+          const git = getGitStatus(repoDir);
+          const changes = [];
+          if (git.staged > 0) changes.push(chalk12.green(`+${git.staged}`));
+          if (git.modified > 0) changes.push(chalk12.yellow(`~${git.modified}`));
+          if (git.untracked > 0) changes.push(chalk12.dim(`?${git.untracked}`));
+          if (changes.length > 0) {
+            console.log(chalk12.dim(`    ${repo}: `) + changes.join(" "));
+          }
+        }
+      }
+    }
+    for (const agent of wsAgents) {
+      const running = agent.pid && isProcessRunning(agent.pid);
+      const icon = running ? chalk12.cyan("\u21B3") : chalk12.dim("\u21B3");
+      const duration = timeSince2(new Date(agent.started));
+      console.log(`  ${icon} Agent ${agent.id} ${chalk12.dim(`(${duration})`)}${agent.repo ? chalk12.dim(` \u2192 ${agent.repo}`) : ""}`);
+      if (agent.description) {
+        console.log(chalk12.dim(`      ${agent.description.slice(0, 50)}...`));
+      }
+    }
+    console.log();
+  }
+  console.log(chalk12.dim("\u2501".repeat(60)));
+  console.log(chalk12.dim("  hyve dashboard -w <name>  ") + "Detailed workspace view");
+  console.log(chalk12.dim('  hyve work "Name" "Task"   ') + "Start new work");
+  console.log();
+}
+function showWorkspaceDetail(name) {
+  const workspaceDir = getWorkspaceDir(name);
+  if (!existsSync11(workspaceDir)) {
+    console.error(chalk12.red(`Workspace not found: ${name}`));
+    process.exit(1);
+  }
+  const config = getWorkspaceConfig(name);
+  const agents = loadAgents2().filter((a) => a.workspace === name);
+  console.log();
+  console.log(chalk12.red("\u2B21") + chalk12.bold(` Workspace: ${name}`));
+  console.log(chalk12.dim("\u2501".repeat(60)));
+  console.log();
+  if (config) {
+    console.log(chalk12.dim("Branch:   ") + config.branch);
+    console.log(chalk12.dim("Created:  ") + new Date(config.created).toLocaleString());
+    console.log(chalk12.dim("Location: ") + workspaceDir);
+    if (config.database?.enabled) {
+      console.log(chalk12.dim("Database: ") + `localhost:${config.database.port}`);
+    }
+    console.log();
+    console.log(chalk12.bold("Repositories"));
+    console.log();
+    for (const repo of config.repos) {
+      const repoDir = join11(workspaceDir, repo);
+      console.log(`  ${chalk12.cyan("\u25A0")} ${chalk12.bold(repo)}`);
+      console.log(chalk12.dim(`    ${repoDir}`));
+      if (existsSync11(repoDir)) {
+        const git = getGitStatus(repoDir);
+        console.log(chalk12.dim("    Git: ") + chalk12.green(`${git.staged} staged`) + ", " + chalk12.yellow(`${git.modified} modified`) + ", " + chalk12.dim(`${git.untracked} untracked`));
+      }
+      console.log();
+    }
+  }
+  const taskFile = join11(workspaceDir, ".hyve", "current-task.md");
+  if (existsSync11(taskFile)) {
+    console.log(chalk12.bold("Current Task"));
+    console.log();
+    const taskContent = readFileSync9(taskFile, "utf-8");
+    const taskMatch = taskContent.match(/## Task\n\n([^\n]+)/);
+    if (taskMatch) {
+      console.log(chalk12.dim("  ") + taskMatch[1]);
+    }
+    console.log();
+  }
+  if (agents.length > 0) {
+    console.log(chalk12.bold("Agent Activity"));
+    console.log();
+    for (const agent of agents) {
+      const running = agent.pid && isProcessRunning(agent.pid);
+      const icon = running ? chalk12.green("\u25CF") : chalk12.dim("\u25CB");
+      const status = running ? chalk12.green("running") : chalk12.dim("stopped");
+      const duration = timeSince2(new Date(agent.started));
+      console.log(`  ${icon} ${agent.id} ${chalk12.dim(`(${status}, ${duration})`)}`);
+      if (agent.repo) {
+        console.log(chalk12.dim(`    Repo: ${agent.repo}`));
+      }
+      if (agent.description) {
+        console.log(chalk12.dim(`    Task: ${agent.description}`));
+      }
+      console.log();
+    }
+  }
+  console.log(chalk12.dim("\u2501".repeat(60)));
+  console.log(chalk12.dim("  hyve run " + name + "     ") + "Start services");
+  console.log(chalk12.dim("  hyve halt " + name + "    ") + "Stop services");
+  console.log(chalk12.dim("  hyve cleanup " + name + " ") + "Remove workspace");
+  console.log();
+}
+
 // src/index.ts
 var VERSION = "2.0.0";
 var logo = `
-${chalk11.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
+${chalk13.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
          \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584
-       \u2584\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2584
-      \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
-     \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
-    \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
-   \u2580\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2588\u2588\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2580
-    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2580
-     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
+       \u2584\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2584
+      \u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588
+     \u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588
+    \u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588
+   \u2580\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2588\u2588\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2580
+    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2580
+     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk13.black(`\u2580\u2580`)}${chalk13.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
        \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580
          \u2580\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580\u2580`)}
-${chalk11.white.bold(`
+${chalk13.white.bold(`
     \u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557
@@ -1884,10 +2456,10 @@ ${chalk11.white.bold(`
     \u2588\u2588\u2551  \u2588\u2588\u2551   \u2588\u2588\u2551    \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u255A\u2550\u255D  \u255A\u2550\u255D   \u255A\u2550\u255D     \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D`)}
 `;
-var program = new Command11();
-program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(attachCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand).addCommand(installCommandsCommand).addCommand(agentCommand);
+var program = new Command13();
+program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(workCommand).addCommand(dashboardCommand).addCommand(createCommand).addCommand(attachCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand).addCommand(installCommandsCommand).addCommand(agentCommand);
 program.hook("preAction", () => {
-  console.log(chalk11.red("\u2B21") + " " + chalk11.white.bold("hyve"));
+  console.log(chalk13.red("\u2B21") + " " + chalk13.white.bold("hyve"));
   console.log();
 });
 program.parse();

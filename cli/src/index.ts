@@ -11,6 +11,8 @@ import { dbCommand } from "./commands/db.js";
 import { installCommandsCommand } from "./commands/install-commands.js";
 import { agentCommand } from "./commands/agent.js";
 import { attachCommand } from "./commands/attach.js";
+import { workCommand } from "./commands/work.js";
+import { dashboardCommand } from "./commands/dashboard.js";
 
 const VERSION = "2.0.0";
 
@@ -41,6 +43,8 @@ program
   .name("hyve")
   .description("Autonomous Multi-Repo Agent Workspaces")
   .version(VERSION)
+  .addCommand(workCommand)
+  .addCommand(dashboardCommand)
   .addCommand(createCommand)
   .addCommand(attachCommand)
   .addCommand(cleanupCommand)

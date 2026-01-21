@@ -7,7 +7,9 @@ import { join } from "path";
 import { getWorkspaceDir, getRepoPath, getProjectRoot } from "../config.js";
 import { listWorkspaces, workspaceExists, getWorkspaceConfig } from "../utils.js";
 
-export const cleanupCommand = new Command("cleanup")
+export const cleanupCommand = new Command("remove")
+  .alias("cleanup")
+  .alias("rm")
   .description("Remove a workspace")
   .argument("[name]", "Workspace name")
   .option("-f, --force", "Skip confirmation")
@@ -65,6 +67,7 @@ export const cleanupCommand = new Command("cleanup")
 
     // Remove worktrees - use sync for speed (no async overhead)
     const repos = config?.repos || [];
+    console.log(chalk.dim("  Removing worktrees..."));
     for (const repo of repos) {
       try {
         const mainRepoPath = getRepoPath(repo);
@@ -75,11 +78,15 @@ export const cleanupCommand = new Command("cleanup")
             cwd: mainRepoPath,
             stdio: "ignore",
           });
+          console.log(chalk.green(`    ✓ ${repo}`));
         }
-      } catch {}
+      } catch {
+        console.log(chalk.yellow(`    ⚠ ${repo} (may not exist)`));
+      }
     }
 
     // Prune all worktrees in one batch after removal
+    console.log(chalk.dim("  Pruning git worktrees..."));
     for (const repo of repos) {
       try {
         const mainRepoPath = getRepoPath(repo);
@@ -88,6 +95,7 @@ export const cleanupCommand = new Command("cleanup")
         }
       } catch {}
     }
+    console.log(chalk.green("  ✓ Worktrees pruned"));
 
     // Remove from VS Code workspace file if it exists
     const projectRoot = getProjectRoot();
@@ -104,13 +112,19 @@ export const cleanupCommand = new Command("cleanup")
           if (vscodeContent.folders && Array.isArray(vscodeContent.folders)) {
             const workspaceRelPath = workspaceDir.replace(projectRoot + "/", "");
 
+            // Extract feature ID for matching folder names
+            const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
+
             // Remove folders that belong to this workspace
             const originalLength = vscodeContent.folders.length;
             vscodeContent.folders = vscodeContent.folders.filter(
               (f: { path?: string; name?: string }) => {
-                // Remove by path match or by name pattern [workspace-name]
+                // Remove by path match or by name pattern "[FEATURE-ID] repo"
                 if (f.path?.startsWith(workspaceRelPath + "/")) return false;
-                if (f.name?.startsWith(`[${name}]`)) return false;
+                if (f.name?.startsWith(`[${featureId}]`)) return false;
+                // Also match old naming patterns
+                if (f.name?.includes(`[${featureId}]`)) return false;
+                if (f.name?.includes(`⬡ ${featureId}`)) return false;
                 return true;
               }
             );
@@ -128,7 +142,11 @@ export const cleanupCommand = new Command("cleanup")
     }
 
     // Remove workspace directory
+    console.log(chalk.dim("  Removing workspace directory..."));
     rmSync(workspaceDir, { recursive: true, force: true });
+    console.log(chalk.green("  ✓ Directory removed"));
 
-    console.log(chalk.green(`✓ Workspace "${name}" removed`));
+    console.log();
+    console.log(chalk.green.bold(`✓ Workspace "${name}" removed`));
+    console.log(chalk.dim("  Git branches preserved in main repos"));
   });

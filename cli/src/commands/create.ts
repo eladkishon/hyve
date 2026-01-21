@@ -71,8 +71,8 @@ function generateClaudeMd(
   lines.push(`# Check status`);
   lines.push(`hyve status ${name}`);
   lines.push("");
-  lines.push(`# Cleanup when done`);
-  lines.push(`hyve cleanup ${name}`);
+  lines.push(`# Remove workspace when done`);
+  lines.push(`hyve remove ${name}`);
   lines.push("```");
   lines.push("");
 
@@ -83,6 +83,24 @@ function generateClaudeMd(
   lines.push("");
   lines.push("The `.env` files have been configured with workspace-specific ports.");
   lines.push("You can run the full stack without conflicting with other workspaces.");
+  lines.push("");
+
+  lines.push("## Multi-Repo Orchestration");
+  lines.push("");
+  lines.push("When working across multiple repos:");
+  lines.push("");
+  lines.push("1. **Analyze** which repos need changes for the task");
+  lines.push("2. **Order** changes correctly: backend/API first → schema/types → frontend");
+  lines.push("3. **Coordinate** commits with cross-references between repos");
+  lines.push("4. **Checkpoint** before committing - summarize changes and wait for approval");
+  lines.push("");
+  lines.push("### Cross-Repo Rules");
+  lines.push("");
+  lines.push("- API changes: Update backend first, regenerate types, then update consumers");
+  lines.push("- Database changes: Run migrations before dependent code changes");
+  lines.push("- Shared types: Update source, regenerate, then update consumers");
+  lines.push("");
+  lines.push("**DO NOT COMMIT without user approval.**");
   lines.push("");
 
   return lines.join("\n");
@@ -141,6 +159,17 @@ export const createCommand = new Command("create")
     const workspaceDir = getWorkspaceDir(name);
 
     console.log(chalk.cyan(`Creating workspace: ${chalk.bold(name)}`));
+
+    // Pre-emptively prune stale worktrees from all repos
+    console.log(chalk.dim("Pruning stale worktrees..."));
+    for (const repo of allRepos) {
+      try {
+        const repoPath = getRepoPath(repo);
+        if (existsSync(repoPath)) {
+          execSync("git worktree prune", { cwd: repoPath, stdio: "ignore" });
+        }
+      } catch {}
+    }
 
     // Create workspace directory
     mkdirSync(workspaceDir, { recursive: true });
@@ -203,16 +232,42 @@ export const createCommand = new Command("create")
         }
 
         // Create worktree
-        if (branchExists || options.from) {
-          execSync(`git worktree add "${worktreeDir}" "${branchName}"`, {
-            cwd: repoPath,
-            stdio: "ignore",
-          });
-        } else {
-          execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}"`, {
-            cwd: repoPath,
-            stdio: "ignore",
-          });
+        try {
+          if (branchExists || options.from) {
+            execSync(`git worktree add "${worktreeDir}" "${branchName}" 2>&1`, {
+              cwd: repoPath,
+              encoding: "utf-8",
+            });
+          } else {
+            execSync(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}" 2>&1`, {
+              cwd: repoPath,
+              encoding: "utf-8",
+            });
+          }
+        } catch (wtError: any) {
+          const output = wtError.stdout || wtError.stderr || wtError.message || "";
+
+          // Check if branch is already checked out elsewhere
+          if (output.includes("already checked out") || output.includes("is already being used")) {
+            // Try with --force to detach HEAD in the other worktree
+            try {
+              execSync("git worktree prune", { cwd: repoPath, stdio: "ignore" });
+              // Retry with force
+              execSync(`git worktree add --force "${worktreeDir}" "${branchName}" 2>&1`, {
+                cwd: repoPath,
+                encoding: "utf-8",
+              });
+            } catch (retryError: any) {
+              const retryOutput = retryError.stdout || retryError.stderr || "";
+              throw new Error(retryOutput.split("\n").filter(Boolean).pop() || "Branch in use elsewhere");
+            }
+          } else if (output.includes("already exists")) {
+            throw new Error(`Worktree path already exists`);
+          } else {
+            // Get last meaningful line of error
+            const errorLine = output.split("\n").filter((l: string) => l.trim() && !l.includes("Preparing")).pop();
+            throw new Error(errorLine || output.slice(0, 100) || "git worktree failed");
+          }
         }
 
         console.log(chalk.green(`  ✓ ${repo}`) + chalk.dim(` → ${branchName}`));
@@ -439,6 +494,9 @@ export const createCommand = new Command("create")
       join(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`),
     ];
 
+    // Extract short feature ID (e.g., "DEV-9387" from "dev-9387-fixes-for-portal")
+    const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
+
     for (const vscodeFile of vscodeWorkspaceFiles) {
       if (existsSync(vscodeFile)) {
         try {
@@ -450,7 +508,8 @@ export const createCommand = new Command("create")
 
             for (const repo of successfulRepos) {
               const folderPath = `${workspaceRelPath}/${repo}`;
-              const folderName = `[${name}] ${repo}`;
+              // Format: "[FEATURE-ID] repo" - e.g., "[DEV-9387] server" - sorts together
+              const folderName = `[${featureId}] ${repo}`;
 
               // Check if already exists
               const exists = vscodeContent.folders.some(
@@ -459,13 +518,8 @@ export const createCommand = new Command("create")
               );
 
               if (!exists) {
-                // Find where to insert (after the "." folder which is usually last of main repos)
-                const dotIndex = vscodeContent.folders.findIndex(
-                  (f: { path?: string }) => f.path === "."
-                );
-                const insertIndex = dotIndex !== -1 ? dotIndex : vscodeContent.folders.length;
-
-                vscodeContent.folders.splice(insertIndex, 0, {
+                // Add at the END of the list to group workspaces together
+                vscodeContent.folders.push({
                   name: folderName,
                   path: folderPath,
                 });
