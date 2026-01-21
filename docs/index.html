@@ -117,19 +117,219 @@
       color: #666;
     }
 
-    /* Diagram canvas area */
+    /* Diagram area */
     .diagram-area {
       flex: 1;
-      position: relative;
-      min-height: 450px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 500px;
     }
 
-    canvas {
+    .workspaces {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .workspace-card {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 12px;
+      width: 260px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .workspace-card::before {
+      content: '';
       position: absolute;
       top: 0;
       left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .workspace-card.claude::before { background: #dc2626; }
+    .workspace-card.cursor::before { background: #0ea5e9; }
+    .workspace-card.aider::before { background: #8b5cf6; }
+
+    .workspace-card.claude { border-color: #dc262640; }
+    .workspace-card.cursor { border-color: #0ea5e940; }
+    .workspace-card.aider { border-color: #8b5cf640; }
+
+    .ws-header {
+      padding: 12px 16px;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .ws-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .ws-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .claude .ws-dot { background: #dc2626; }
+    .cursor .ws-dot { background: #0ea5e9; }
+    .aider .ws-dot { background: #8b5cf6; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .ws-agent {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .claude .ws-agent { background: #dc262620; color: #dc2626; }
+    .cursor .ws-agent { background: #0ea5e920; color: #0ea5e9; }
+    .aider .ws-agent { background: #8b5cf620; color: #8b5cf6; }
+
+    .ws-body {
+      padding: 16px;
+    }
+
+    .ws-section {
+      margin-bottom: 12px;
+    }
+
+    .ws-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .ws-label {
+      font-size: 10px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .ws-repos {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ws-repo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 10px;
+      background: #151515;
+      border-radius: 6px;
+    }
+
+    .ws-repo-name {
+      color: #888;
+    }
+
+    .ws-repo-branch {
+      color: #f59e0b;
+      margin-left: auto;
+    }
+
+    .ws-db {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 8px 10px;
+      background: #0a1a0a;
+      border: 1px solid #22c55e20;
+      border-radius: 6px;
+    }
+
+    .ws-db-icon {
+      color: #22c55e;
+    }
+
+    .ws-db-name {
+      color: #666;
+    }
+
+    .ws-db-port {
+      color: #22c55e;
+      margin-left: auto;
+    }
+
+    /* Connection lines */
+    .connections {
+      position: relative;
+      height: 60px;
       width: 100%;
-      height: 100%;
+      max-width: 900px;
+    }
+
+    .connection-line {
+      position: absolute;
+      bottom: 0;
+      width: 2px;
+      height: 60px;
+      background: linear-gradient(to bottom, #333, #dc2626);
+    }
+
+    .connection-line.left { left: calc(50% - 280px); }
+    .connection-line.center { left: 50%; transform: translateX(-50%); }
+    .connection-line.right { right: calc(50% - 280px); }
+
+    /* Main branch */
+    .main-branch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 32px;
+      background: #111;
+      border: 1px solid #dc262640;
+      border-radius: 8px;
+    }
+
+    .main-dot {
+      width: 12px;
+      height: 12px;
+      background: #dc2626;
+      border-radius: 50%;
+    }
+
+    .main-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .main-sub {
+      color: #555;
+      font-size: 12px;
+    }
+
+    /* Flow indicator */
+    .flow-indicator {
+      text-align: center;
+      margin: 24px 0;
+      color: #444;
+      font-size: 12px;
     }
 
     /* Features below */
@@ -195,6 +395,20 @@
 
     footer a:hover { color: #fff; }
 
+    @media (max-width: 900px) {
+      .workspaces {
+        flex-direction: column;
+        align-items: center;
+      }
+      .workspace-card {
+        width: 100%;
+        max-width: 320px;
+      }
+      .connections {
+        display: none;
+      }
+    }
+
     @media (max-width: 768px) {
       .features-grid { grid-template-columns: 1fr 1fr; }
       .hero-logo { width: 120px; height: 120px; }
@@ -225,7 +439,123 @@
       </div>
     </div>
     <div class="diagram-area">
-      <canvas id="canvas"></canvas>
+      <div class="workspaces">
+        <!-- Claude Workspace -->
+        <div class="workspace-card claude">
+          <div class="ws-header">
+            <div class="ws-name">
+              <span class="ws-dot"></span>
+              auth-feature
+            </div>
+            <span class="ws-agent">Claude</span>
+          </div>
+          <div class="ws-body">
+            <div class="ws-section">
+              <div class="ws-label">Repos (isolated branches)</div>
+              <div class="ws-repos">
+                <div class="ws-repo">
+                  <span class="ws-repo-name">server</span>
+                  <span class="ws-repo-branch">feature/auth</span>
+                </div>
+                <div class="ws-repo">
+                  <span class="ws-repo-name">webapp</span>
+                  <span class="ws-repo-branch">feature/auth</span>
+                </div>
+              </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-label">Database (cloned)</div>
+              <div class="ws-db">
+                <span class="ws-db-icon">●</span>
+                <span class="ws-db-name">postgres</span>
+                <span class="ws-db-port">:5500</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cursor Workspace -->
+        <div class="workspace-card cursor">
+          <div class="ws-header">
+            <div class="ws-name">
+              <span class="ws-dot"></span>
+              billing-api
+            </div>
+            <span class="ws-agent">Cursor</span>
+          </div>
+          <div class="ws-body">
+            <div class="ws-section">
+              <div class="ws-label">Repos (isolated branches)</div>
+              <div class="ws-repos">
+                <div class="ws-repo">
+                  <span class="ws-repo-name">server</span>
+                  <span class="ws-repo-branch">feature/billing</span>
+                </div>
+                <div class="ws-repo">
+                  <span class="ws-repo-name">payments</span>
+                  <span class="ws-repo-branch">feature/billing</span>
+                </div>
+              </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-label">Database (cloned)</div>
+              <div class="ws-db">
+                <span class="ws-db-icon">●</span>
+                <span class="ws-db-name">postgres</span>
+                <span class="ws-db-port">:5501</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aider Workspace -->
+        <div class="workspace-card aider">
+          <div class="ws-header">
+            <div class="ws-name">
+              <span class="ws-dot"></span>
+              ui-refactor
+            </div>
+            <span class="ws-agent">Aider</span>
+          </div>
+          <div class="ws-body">
+            <div class="ws-section">
+              <div class="ws-label">Repos (isolated branches)</div>
+              <div class="ws-repos">
+                <div class="ws-repo">
+                  <span class="ws-repo-name">webapp</span>
+                  <span class="ws-repo-branch">feature/ui</span>
+                </div>
+                <div class="ws-repo">
+                  <span class="ws-repo-name">design-system</span>
+                  <span class="ws-repo-branch">feature/ui</span>
+                </div>
+              </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-label">Database (cloned)</div>
+              <div class="ws-db">
+                <span class="ws-db-icon">●</span>
+                <span class="ws-db-name">postgres</span>
+                <span class="ws-db-port">:5502</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="connections">
+        <div class="connection-line left"></div>
+        <div class="connection-line center"></div>
+        <div class="connection-line right"></div>
+      </div>
+
+      <div class="main-branch">
+        <span class="main-dot"></span>
+        <span class="main-label">main</span>
+        <span class="main-sub">shared codebase</span>
+      </div>
+
+      <div class="flow-indicator">Each workspace branches from main with its own database clone</div>
     </div>
   </section>
 
@@ -266,262 +596,6 @@
   </footer>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-
-    let W, H;
-    let time = 0;
-
-    const COLORS = {
-      main: '#dc2626',
-      claude: '#dc2626',
-      cursor: '#0ea5e9',
-      aider: '#8b5cf6',
-      db: '#22c55e'
-    };
-
-    // Workspace data
-    const workspaces = [
-      { name: 'auth-feature', agent: 'Claude', color: COLORS.claude, port: 4000, dbPort: 5500 },
-      { name: 'billing-api', agent: 'Cursor', color: COLORS.cursor, port: 5000, dbPort: 5501 },
-      { name: 'ui-refactor', agent: 'Aider', color: COLORS.aider, port: 6000, dbPort: 5502 }
-    ];
-
-    let wsNodes = [];
-    let mainNode = { x: 0, y: 0 };
-    let particles = [];
-
-    function resize() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      W = canvas.width = rect.width;
-      H = canvas.height = rect.height;
-
-      // Position main branch node
-      mainNode = { x: W / 2, y: H - 60 };
-
-      // Position workspace nodes
-      const spacing = Math.min(280, (W - 100) / 3);
-      wsNodes = workspaces.map((ws, i) => ({
-        ...ws,
-        x: W / 2 + (i - 1) * spacing,
-        y: H / 2 - 30,
-        pulse: 0,
-        activity: 0
-      }));
-    }
-
-    function drawMainBranch() {
-      const gradient = ctx.createLinearGradient(0, mainNode.y, W, mainNode.y);
-      gradient.addColorStop(0, 'transparent');
-      gradient.addColorStop(0.3, COLORS.main + '40');
-      gradient.addColorStop(0.5, COLORS.main);
-      gradient.addColorStop(0.7, COLORS.main + '40');
-      gradient.addColorStop(1, 'transparent');
-
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, mainNode.y);
-      ctx.lineTo(W, mainNode.y);
-      ctx.stroke();
-
-      // Main label
-      ctx.fillStyle = COLORS.main;
-      ctx.beginPath();
-      ctx.arc(mainNode.x, mainNode.y, 10, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#fff';
-      ctx.font = '600 12px Inter';
-      ctx.textAlign = 'center';
-      ctx.fillText('main', mainNode.x, mainNode.y + 28);
-    }
-
-    function drawConnection(from, to, color) {
-      ctx.strokeStyle = color + '30';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(to.x, to.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    function drawWorkspace(ws) {
-      const boxW = 100;
-      const boxH = 72;
-
-      // Glow
-      const glowSize = 20 + ws.activity * 30;
-      const gradient = ctx.createRadialGradient(ws.x, ws.y, 0, ws.x, ws.y, boxW + glowSize);
-      gradient.addColorStop(0, ws.color + '20');
-      gradient.addColorStop(1, 'transparent');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(ws.x - boxW - glowSize, ws.y - boxH/2 - glowSize, (boxW + glowSize) * 2, boxH + glowSize * 2);
-
-      // Box
-      ctx.fillStyle = '#0a0a0a';
-      ctx.strokeStyle = ws.color + '80';
-      ctx.lineWidth = 2;
-      roundRect(ctx, ws.x - boxW, ws.y - boxH/2, boxW * 2, boxH, 10);
-      ctx.fill();
-      ctx.stroke();
-
-      // Header
-      ctx.fillStyle = '#111';
-      roundRect(ctx, ws.x - boxW + 2, ws.y - boxH/2 + 2, boxW * 2 - 4, 22, [8, 8, 0, 0]);
-      ctx.fill();
-
-      // Dot
-      ctx.fillStyle = ws.color;
-      ctx.beginPath();
-      const pulse = Math.sin(time * 0.05 + wsNodes.indexOf(ws)) * 0.3 + 0.7;
-      ctx.globalAlpha = pulse;
-      ctx.arc(ws.x - boxW + 14, ws.y - boxH/2 + 13, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // Name
-      ctx.fillStyle = '#fff';
-      ctx.font = '600 11px Inter';
-      ctx.textAlign = 'left';
-      ctx.fillText(ws.name, ws.x - boxW + 26, ws.y - boxH/2 + 16);
-
-      // Agent badge
-      ctx.fillStyle = ws.color + '30';
-      const badgeW = ctx.measureText(ws.agent).width + 12;
-      roundRect(ctx, ws.x + boxW - badgeW - 8, ws.y - boxH/2 + 6, badgeW, 16, 4);
-      ctx.fill();
-      ctx.fillStyle = ws.color;
-      ctx.font = '500 9px Inter';
-      ctx.textAlign = 'center';
-      ctx.fillText(ws.agent, ws.x + boxW - badgeW/2 - 8, ws.y - boxH/2 + 17);
-
-      // Details
-      ctx.font = '500 10px JetBrains Mono';
-      ctx.textAlign = 'left';
-
-      ctx.fillStyle = '#555';
-      ctx.fillText('branch', ws.x - boxW + 12, ws.y + 4);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText('feature/' + ws.name.split('-')[0], ws.x + 20, ws.y + 4);
-
-      ctx.fillStyle = '#555';
-      ctx.fillText('server', ws.x - boxW + 12, ws.y + 20);
-      ctx.fillStyle = '#22c55e';
-      ctx.fillText(':' + ws.port, ws.x + 20, ws.y + 20);
-
-      ctx.fillStyle = '#555';
-      ctx.fillText('db', ws.x - boxW + 12, ws.y + 36);
-      ctx.fillStyle = '#22c55e';
-      ctx.fillText(':' + ws.dbPort, ws.x + 20, ws.y + 36);
-    }
-
-    function roundRect(ctx, x, y, w, h, r) {
-      if (typeof r === 'number') r = [r, r, r, r];
-      ctx.beginPath();
-      ctx.moveTo(x + r[0], y);
-      ctx.lineTo(x + w - r[1], y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
-      ctx.lineTo(x + w, y + h - r[2]);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
-      ctx.lineTo(x + r[3], y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
-      ctx.lineTo(x, y + r[0]);
-      ctx.quadraticCurveTo(x, y, x + r[0], y);
-      ctx.closePath();
-    }
-
-    // Particles
-    class Particle {
-      constructor(target) {
-        this.target = target;
-        this.x = mainNode.x;
-        this.y = mainNode.y;
-        this.progress = 0;
-        this.speed = 0.015 + Math.random() * 0.01;
-      }
-
-      update() {
-        this.progress += this.speed;
-        this.x = mainNode.x + (this.target.x - mainNode.x) * this.progress;
-        this.y = mainNode.y + (this.target.y - mainNode.y) * this.progress;
-
-        if (this.progress >= 1) {
-          this.target.activity = 1;
-          return true;
-        }
-        return false;
-      }
-
-      draw() {
-        ctx.fillStyle = this.target.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Trail
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 20);
-        gradient.addColorStop(0, this.target.color + '60');
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 20, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    function spawnParticle() {
-      const target = wsNodes[Math.floor(Math.random() * wsNodes.length)];
-      particles.push(new Particle(target));
-    }
-
-    function animate() {
-      time++;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, W, H);
-
-      // Draw subtle grid
-      ctx.strokeStyle = '#0a0a0a';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < W; x += 60) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
-        ctx.stroke();
-      }
-      for (let y = 0; y < H; y += 60) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
-      }
-
-      drawMainBranch();
-
-      // Connections and workspaces
-      wsNodes.forEach(ws => {
-        drawConnection(mainNode, ws, ws.color);
-        ws.activity *= 0.95;
-      });
-
-      wsNodes.forEach(ws => drawWorkspace(ws));
-
-      // Particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].draw();
-        if (particles[i].update()) {
-          particles.splice(i, 1);
-        }
-      }
-
-      requestAnimationFrame(animate);
-    }
-
-    // Spawn particles periodically
-    setInterval(spawnParticle, 1500);
-
     function copyInstall() {
       navigator.clipboard.writeText('npm install -g hyve-cli');
       const box = document.querySelector('.install-box span:first-child');
@@ -529,11 +603,6 @@
       box.textContent = 'Copied!';
       setTimeout(() => box.textContent = orig, 1500);
     }
-
-    window.addEventListener('resize', resize);
-    resize();
-    animate();
-    setTimeout(spawnParticle, 500);
   </script>
 </body>
 </html>
