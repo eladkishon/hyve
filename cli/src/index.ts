@@ -11,14 +11,26 @@ import { dbCommand } from "./commands/db.js";
 
 const VERSION = "2.0.0";
 
-const logo = chalk.yellow(`
+const logo = `
+${chalk.red(`            ▄▄▄████████▄▄▄
+         ▄██████████████████▄
+       ▄████`)}${chalk.black(`▀▀▀`)}${chalk.red(`████████`)}${chalk.black(`▀▀▀`)}${chalk.red(`████▄
+      ████`)}${chalk.black(`▀`)}${chalk.red(`███`)}${chalk.black(`▀`)}${chalk.red(`██████`)}${chalk.black(`▀`)}${chalk.red(`███`)}${chalk.black(`▀`)}${chalk.red(`████
+     ████`)}${chalk.black(`▀`)}${chalk.red(`████`)}${chalk.black(`▀▀`)}${chalk.red(`████`)}${chalk.black(`▀▀`)}${chalk.red(`████`)}${chalk.black(`▀`)}${chalk.red(`████
+    ████`)}${chalk.black(`▀`)}${chalk.red(`██████`)}${chalk.black(`▀▄██▄▀`)}${chalk.red(`██████`)}${chalk.black(`▀`)}${chalk.red(`████
+   ▀████`)}${chalk.black(`▀`)}${chalk.red(`███████`)}${chalk.black(`▀██▀`)}${chalk.red(`███████`)}${chalk.black(`▀`)}${chalk.red(`████▀
+    ▀█████`)}${chalk.black(`▀`)}${chalk.red(`████████████████`)}${chalk.black(`▀`)}${chalk.red(`█████▀
+     ▀██████`)}${chalk.black(`▀▀`)}${chalk.red(`██████████`)}${chalk.black(`▀▀`)}${chalk.red(`██████▀
+       ▀█████████████████████▀
+         ▀▀█████████████▀▀`)}
+${chalk.white.bold(`
     ██╗  ██╗██╗   ██╗██╗   ██╗███████╗
     ██║  ██║╚██╗ ██╔╝██║   ██║██╔════╝
     ███████║ ╚████╔╝ ██║   ██║█████╗
     ██╔══██║  ╚██╔╝  ╚██╗ ██╔╝██╔══╝
     ██║  ██║   ██║    ╚████╔╝ ███████╗
-    ╚═╝  ╚═╝   ╚═╝     ╚═══╝  ╚══════╝
-`);
+    ╚═╝  ╚═╝   ╚═╝     ╚═══╝  ╚══════╝`)}
+`;
 
 const program = new Command();
 
@@ -35,7 +47,7 @@ program
   .addCommand(dbCommand);
 
 program.hook("preAction", () => {
-  console.log(chalk.yellow("⬡") + " " + chalk.bold("hyve"));
+  console.log(chalk.red("⬡") + " " + chalk.white.bold("hyve"));
   console.log();
 });
 

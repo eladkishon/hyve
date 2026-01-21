@@ -30,6 +30,7 @@ export interface HyveConfig {
     user: string;
     password: string;
     name: string;
+    seed_command?: string;  // Command to seed the database, ${port} is replaced
   };
   services: {
     port_offset: number;

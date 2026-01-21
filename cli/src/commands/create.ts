@@ -239,6 +239,22 @@ export const createCommand = new Command("create")
         }
 
         console.log(chalk.green(`  ✓ Database ready on port ${dbPort}`));
+
+        // Run seed command if configured
+        if (config.database.seed_command) {
+          console.log(chalk.dim("  Running database seed command..."));
+          const seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+          try {
+            execSync(`bash -l -c '${seedCommand}'`, {
+              cwd: projectRoot,
+              stdio: "inherit",
+              timeout: 300000, // 5 minute timeout
+            });
+            console.log(chalk.green(`  ✓ Database seeded`));
+          } catch (error: any) {
+            console.log(chalk.yellow(`  ⚠ Database seeding failed: ${error.message}`));
+          }
+        }
       } catch (error: any) {
         console.log(chalk.yellow(`  ⚠ Database setup failed: ${error.message}`));
       }
@@ -300,9 +316,18 @@ export const createCommand = new Command("create")
           workspaceIndex,
           config.services.port_offset
         );
+        // Replace both localhost:port and 127.0.0.1:port patterns
         envContent = envContent.replace(
-          new RegExp(`localhost:${defaultPort}`, "g"),
-          `localhost:${workspacePort}`
+          new RegExp(`(localhost|127\\.0\\.0\\.1):${defaultPort}`, "g"),
+          `$1:${workspacePort}`
+        );
+      }
+
+      // Replace database source port with workspace database port
+      if (dbPort && config.database.source_port) {
+        envContent = envContent.replace(
+          new RegExp(`(localhost|127\\.0\\.0\\.1):${config.database.source_port}`, "g"),
+          `$1:${dbPort}`
         );
       }
 

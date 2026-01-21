@@ -287,6 +287,21 @@ var createCommand = new Command("create").description("Create a new feature work
         );
       }
       console.log(chalk.green(`  \u2713 Database ready on port ${dbPort}`));
+      if (config.database.seed_command) {
+        console.log(chalk.dim("  Running database seed command..."));
+        const seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+        try {
+          execSync(`bash -l -c '${seedCommand}'`, {
+            cwd: projectRoot2,
+            stdio: "inherit",
+            timeout: 3e5
+            // 5 minute timeout
+          });
+          console.log(chalk.green(`  \u2713 Database seeded`));
+        } catch (error) {
+          console.log(chalk.yellow(`  \u26A0 Database seeding failed: ${error.message}`));
+        }
+      }
     } catch (error) {
       console.log(chalk.yellow(`  \u26A0 Database setup failed: ${error.message}`));
     }
@@ -337,8 +352,14 @@ ${envContent}`;
         config.services.port_offset
       );
       envContent = envContent.replace(
-        new RegExp(`localhost:${defaultPort}`, "g"),
-        `localhost:${workspacePort}`
+        new RegExp(`(localhost|127\\.0\\.0\\.1):${defaultPort}`, "g"),
+        `$1:${workspacePort}`
+      );
+    }
+    if (dbPort && config.database.source_port) {
+      envContent = envContent.replace(
+        new RegExp(`(localhost|127\\.0\\.0\\.1):${config.database.source_port}`, "g"),
+        `$1:${dbPort}`
       );
     }
     if (!envContent.includes("Hyve Workspace")) {
@@ -1345,18 +1366,30 @@ var dbCommand = new Command7("db").description("Connect to workspace database").
 
 // src/index.ts
 var VERSION = "2.0.0";
-var logo = chalk8.yellow(`
+var logo = `
+${chalk8.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
+         \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584
+       \u2584\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2584
+      \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
+     \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
+    \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
+   \u2580\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2588\u2588\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2580
+    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2580
+     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
+       \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580
+         \u2580\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580\u2580`)}
+${chalk8.white.bold(`
     \u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557
     \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551  \u255A\u2588\u2588\u2554\u255D  \u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2554\u2550\u2550\u255D
     \u2588\u2588\u2551  \u2588\u2588\u2551   \u2588\u2588\u2551    \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
-    \u255A\u2550\u255D  \u255A\u2550\u255D   \u255A\u2550\u255D     \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D
-`);
+    \u255A\u2550\u255D  \u255A\u2550\u255D   \u255A\u2550\u255D     \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D`)}
+`;
 var program = new Command8();
 program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand);
 program.hook("preAction", () => {
-  console.log(chalk8.yellow("\u2B21") + " " + chalk8.bold("hyve"));
+  console.log(chalk8.red("\u2B21") + " " + chalk8.white.bold("hyve"));
   console.log();
 });
 program.parse();

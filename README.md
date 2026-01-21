@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/logo.svg" width="120" alt="Hyve Logo">
+  <img src="assets/logo.png" width="400" alt="Hyve Logo">
 </p>
-
-<h1 align="center">⬡ Hyve</h1>
 
 <p align="center">
   <strong>Autonomous Multi-Repo Agent Workspaces</strong>
