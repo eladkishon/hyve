@@ -79,10 +79,16 @@
     }
 
     .hero-logo {
-      width: 100px;
-      height: 100px;
-      margin-bottom: 24px;
-      filter: drop-shadow(0 0 60px rgba(220, 38, 38, 0.5));
+      width: 140px;
+      height: 140px;
+      margin-bottom: 28px;
+      filter: drop-shadow(0 0 80px rgba(220, 38, 38, 0.6)) drop-shadow(0 0 40px rgba(220, 38, 38, 0.4));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
     }
 
     h1 {
