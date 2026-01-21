@@ -3,73 +3,110 @@
 </p>
 
 <p align="center">
-  <strong>Autonomous Multi-Repo Agent Workspaces</strong>
+  <strong>Full-Stack Isolation for Multi-Repo Development</strong>
 </p>
 
 <p align="center">
-  Create isolated feature workspaces with git worktrees and database cloning<br>
-  for parallel multi-repo development with Claude Code
+  Isolated workspaces with git worktrees, cloned databases, and service orchestration<br>
+  Perfect for parallel development and AI coding agents
 </p>
 
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
-  <a href="#configuration">Configuration</a> •
-  <a href="#claude-code-integration">Claude Code</a>
+  <a href="#configuration">Configuration</a>
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/eladkishon">
+    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
+  </a>
 </p>
 
 ---
 
+## Why Hyve?
+
+There are great git worktree managers out there ([gwq](https://github.com/d-kuro/gwq), [gtr](https://github.com/coderabbitai/git-worktree-runner)). But they only manage **code**.
+
+Real features need more than branches:
+
+| Problem | Worktree managers | Hyve |
+|---------|-------------------|------|
+| Git branches across multiple repos | ✅ | ✅ |
+| Isolated database per feature | ❌ | ✅ |
+| Run full stack with correct ports | ❌ | ✅ |
+| Auto-configure .env files | ❌ | ✅ |
+| Service health checks | ❌ | ✅ |
+
+**Hyve gives you complete environment isolation**, not just code isolation.
+
 ## The Problem
 
-Working on features that span multiple repositories is painful:
-- Switching branches across repos breaks your environment
-- Database state gets corrupted when testing different features
-- Can't work on multiple features in parallel
-- Context switching kills productivity
+You're working on `feature-A` and need to quickly test `feature-B`:
+
+```bash
+# The old way 😰
+git stash
+git checkout feature-b
+# Wait, the database has feature-A migrations...
+# And the .env points to wrong ports...
+# And there's state in Redis...
+# 2 hours later, you forgot what you were doing
+```
 
 ## The Solution
 
-**Hyve** creates isolated workspaces for each feature:
+```bash
+# The Hyve way 🎉
+hyve create feature-b server webapp
+hyve run feature-b
+
+# feature-A is still running in another terminal
+# Both have isolated databases, correct ports, everything works
+```
 
 ```
-~/my-project/workspaces/
-├── feature-auth/           # Working on authentication
-│   ├── backend/            # Git worktree → feature/auth
-│   ├── frontend/           # Git worktree → feature/auth
-│   └── .env                # DATABASE_URL → port 5500
+~/project/workspaces/
+├── feature-a/
+│   ├── server/       → git worktree on feature/feature-a
+│   ├── webapp/       → git worktree on feature/feature-a
+│   └── database      → postgres container on port 5500
 │
-├── feature-billing/        # Working on billing (in parallel!)
-│   ├── backend/            # Git worktree → feature/billing
-│   ├── frontend/           # Git worktree → feature/billing
-│   └── .env                # DATABASE_URL → port 5501
+├── feature-b/
+│   ├── server/       → git worktree on feature/feature-b
+│   ├── webapp/       → git worktree on feature/feature-b
+│   └── database      → postgres container on port 5501
 ```
 
-Each workspace gets:
-- **Isolated git branches** via worktrees (no more `git stash`)
-- **Isolated database** cloned from your dev DB (optional)
-- **Claude Code integration** for autonomous agent development
+## Perfect for AI Coding Agents
+
+Running multiple Claude Code / Cursor / Aider sessions in parallel? Each agent needs its own isolated environment:
+
+- **Isolated branches** - agents don't conflict on git state
+- **Isolated databases** - agents can run migrations without breaking each other
+- **Isolated ports** - run full stack per agent session
+
+```bash
+# Terminal 1: Agent working on auth feature
+hyve create auth server webapp && hyve run auth
+# Claude Code works on localhost:4000
+
+# Terminal 2: Agent working on billing feature
+hyve create billing server webapp && hyve run billing
+# Claude Code works on localhost:5000 (auto port offset)
+```
 
 ## Installation
 
 ```bash
-# Clone the repo
 git clone https://github.com/eladkishon/hyve.git ~/.hyve
-
-# Add to PATH (add to your .bashrc/.zshrc)
-export PATH="$HOME/.hyve/bin:$PATH"
-
-# Or use the install script
-curl -fsSL https://raw.githubusercontent.com/eladkishon/hyve/main/install.sh | bash
+echo 'export PATH="$HOME/.hyve/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-### Requirements
-
-- `git` (with worktree support, v2.5+)
-- `docker` (for database isolation)
-- `jq` (for JSON parsing)
-- Optional: `yq` (for better YAML parsing)
+**Requirements:** Node.js 22+, git 2.5+, Docker (for database isolation)
 
 ## Quick Start
 
@@ -80,279 +117,182 @@ cd ~/my-project
 hyve init
 ```
 
-This creates `.hyve.yaml` with auto-detected repos.
-
-### 2. Configure your repos
-
-Edit `.hyve.yaml`:
-
-```yaml
-workspaces_dir: ./workspaces
-
-repos:
-  backend:
-    path: ./backend
-    remote: git@github.com:myorg/backend.git
-  frontend:
-    path: ./frontend
-    remote: git@github.com:myorg/frontend.git
-
-database:
-  enabled: true
-  source_port: 5432      # Your dev database
-  base_port: 5500        # Feature DBs start here
-  user: postgres
-  password: postgres
-  name: mydb
-```
-
-### 3. Create a feature workspace
+### 2. Create a workspace
 
 ```bash
-# New feature (creates new branches)
-hyve create user-auth backend frontend
-
-# From existing branch
-hyve create --existing                    # Interactive selection
-hyve create --from my-branch backend      # Specific branch
+hyve create my-feature server webapp
 ```
 
-### 4. Work on your feature
+This:
+- Creates git worktrees for each repo on `feature/my-feature` branch
+- Spins up an isolated PostgreSQL container
+- Clones your dev database
+- Configures .env files with correct ports
+
+### 3. Run your stack
 
 ```bash
-cd workspaces/user-auth
-# Your repos are here on feature/user-auth branches
-# Database is running on an isolated port
+hyve run my-feature
 ```
 
-### 5. Clean up when done
+Starts all services with health checks, correct port bindings, and environment variables.
+
+### 4. Clean up
 
 ```bash
-hyve cleanup user-auth
-# Removes workspace, keeps git branches
+hyve cleanup my-feature
 ```
 
-## Features
-
-### 🌲 Git Worktree Isolation
-
-Each feature gets worktrees instead of branch switching:
-- No `git stash` needed
-- Work on multiple features simultaneously
-- Branches are preserved when workspace is deleted
-
-### 🗄️ Database Cloning
-
-Optionally clone your dev database for each feature:
-- Each workspace gets its own PostgreSQL container
-- Cloned from your running dev database
-- Isolated ports (5500, 5501, 5502...)
-- No more "who broke the dev database?"
-
-### 🤖 Claude Code Integration
-
-Built for autonomous AI development:
-- Slash commands for Claude Code
-- Semi-autonomous agent protocol
-- Cross-repo coordination support
-
-### 📋 Branch Selection
-
-Work with existing branches:
-```bash
-# Interactive: shows all feature/* branches
-hyve create --existing
-
-# Specific branch
-hyve create --from existing-feature backend frontend
-```
+Removes workspace directory and database container. Git branches are preserved.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `hyve init` | Initialize hyve in current directory |
-| `hyve create <name> [repos...]` | Create new feature workspace |
-| `hyve create --existing` | Create from existing branch (interactive) |
-| `hyve create --from <branch>` | Create from specific branch |
-| `hyve list` | List all workspaces |
-| `hyve status [name]` | Show workspace status |
-| `hyve start <name>` | Start database for workspace |
-| `hyve stop <name>` | Stop database for workspace |
-| `hyve cleanup <name>` | Remove workspace |
-| `hyve shell <name>` | Open shell in workspace |
+| `hyve create <name> [repos...]` | Create workspace with git worktrees + database |
+| `hyve run <name> [services...]` | Start services with health checks |
+| `hyve halt <name>` | Stop all services |
+| `hyve status [name]` | Show workspace/service status |
 | `hyve db <name>` | Connect to workspace database (psql) |
-| `hyve install-commands` | Install Claude Code slash commands |
+| `hyve cleanup <name>` | Remove workspace |
+| `hyve list` | List all workspaces |
 
 ## Configuration
 
-### `.hyve.yaml` Reference
+Create `.hyve.yaml` in your project root:
 
 ```yaml
-# Where to create workspaces (relative to this file)
 workspaces_dir: ./workspaces
 
-# Repository definitions
+# Repos to include in workspaces
 repos:
-  backend:
-    path: ./backend              # Path relative to project root
-    remote: git@github.com:...   # Optional, for reference
-  frontend:
-    path: ./frontend
+  server:
+    path: ./server
+    remote: git@github.com:myorg/server.git
+    setup_script: "pnpm install"
+  webapp:
+    path: ./webapp
+    remote: git@github.com:myorg/webapp.git
+    setup_script: "pnpm install"
 
-# Database configuration (optional)
+# Required repos (always included)
+required_repos:
+  - server
+  - webapp
+
+# Database cloning
 database:
-  enabled: true                  # Set to false to disable
-  image: postgres:15             # Docker image
-  source_port: 5432              # Dev DB to clone from
-  base_port: 5500                # Starting port for feature DBs
+  enabled: true
+  source_port: 5432        # Your dev database
+  base_port: 5500          # Feature DBs: 5500, 5501, 5502...
   user: postgres
   password: postgres
   name: mydb
+  seed_command: "psql -f seed.sql -p ${port}"  # Optional seeding
+
+# Service orchestration
+services:
+  port_offset: 1000        # Port increment between workspaces
+  base_port: 4000
+  shell_wrapper: "source ~/.nvm/nvm.sh && nvm use &&"
+
+  definitions:
+    server:
+      default_port: 3000
+      dev_command: "pnpm dev"
+      env_var: "PORT"
+      health_check: "http://localhost:${port}/"
+    webapp:
+      default_port: 3001
+      dev_command: "pnpm dev"
+      depends_on: [server]
+      env:
+        API_URL: "http://localhost:${server_port}"
 
 # Branch naming
 branches:
-  prefix: feature/               # Branches: feature/<name>
-
-# Claude Code agent settings
-agent:
-  autonomy: semi                 # full, semi, supervised
-  checkpoint_before_commit: true
-```
-
-## Claude Code Integration
-
-### Install Slash Commands
-
-```bash
-hyve install-commands
-```
-
-This adds to your `.claude/commands/`:
-- `/hyve-create` - Create workspace
-- `/hyve-status` - Check status
-- `/hyve-work` - Spawn autonomous agent
-- `/hyve-cleanup` - Remove workspace
-
-### Agent Protocol
-
-When you run `/hyve-work my-feature "Add user authentication"`:
-
-1. **Explore** - Agent reads codebase, understands requirements
-2. **Implement** - Makes changes following existing patterns
-3. **Test** - Runs tests, fixes failures
-4. **Checkpoint** - Stops and reports changes before committing
-
-You approve, modify, or reject. The agent never commits without permission.
-
-### Cross-Repo Coordination
-
-For features spanning repos (e.g., API + frontend):
-
-1. Backend changes first
-2. Schema regeneration (`pnpm openapi:local` or similar)
-3. Frontend changes
-4. Coordinated commits with cross-references
-
-## Examples
-
-### Monorepo with Multiple Services
-
-```yaml
-repos:
-  api:
-    path: ./services/api
-  web:
-    path: ./apps/web
-  mobile:
-    path: ./apps/mobile
-  shared:
-    path: ./packages/shared
-```
-
-### Multi-Repo Project
-
-```yaml
-repos:
-  backend:
-    path: ../backend
-    remote: git@github.com:myorg/backend.git
-  frontend:
-    path: ../frontend
-    remote: git@github.com:myorg/frontend.git
-```
-
-### Without Database
-
-```yaml
-database:
-  enabled: false
+  prefix: feature/
+  base: main
 ```
 
 ## How It Works
 
 ### Git Worktrees
 
-Instead of:
+Instead of switching branches, hyve creates separate working directories:
+
 ```bash
-cd backend && git checkout feature/auth
-cd ../frontend && git checkout feature/auth
-# 😰 Can't work on billing now without stashing
+git worktree add workspaces/my-feature/server -b feature/my-feature
 ```
 
-Hyve does:
-```bash
-git worktree add workspaces/auth/backend -b feature/auth
-git worktree add workspaces/auth/frontend -b feature/auth
-# 🎉 Both features exist simultaneously
-```
+Both features exist simultaneously. No stashing, no context loss.
 
 ### Database Cloning
 
-```bash
-# Start isolated PostgreSQL
-docker run -d --name hyve-db-auth -p 5500:5432 postgres:15
+Each workspace gets its own PostgreSQL container:
 
-# Clone from dev database (using container's pg_dump to avoid version mismatch)
-docker exec hyve-db-auth pg_dump -h host.docker.internal -p 5432 ... | \
-docker exec -i hyve-db-auth psql ...
+```bash
+docker run -d --name hyve-db-my-feature -p 5500:5432 postgres:15
+pg_dump source_db | psql -p 5500  # Clone data
 ```
 
-## Troubleshooting
+### Port Management
 
-### "Database clone failed"
+Workspace 0: server:4000, webapp:4001, db:5500
+Workspace 1: server:5000, webapp:5001, db:5501
 
-Your dev database must be accessible from Docker:
-- macOS: Uses `host.docker.internal`
-- Linux: Uses `172.17.0.1` (Docker bridge)
+All automatically configured in .env files.
 
-Check: `psql -h localhost -p <source_port> -U postgres`
+## vs Other Tools
 
-### "Worktree already exists"
+| Feature | Hyve | gwq | gtr | git worktree |
+|---------|------|-----|-----|--------------|
+| Multi-repo worktrees | ✅ | ❌ | ✅ | ❌ |
+| Database isolation | ✅ | ❌ | ❌ | ❌ |
+| Service orchestration | ✅ | ❌ | ❌ | ❌ |
+| Port management | ✅ | ❌ | ❌ | ❌ |
+| Health checks | ✅ | ❌ | ❌ | ❌ |
+| .env configuration | ✅ | ❌ | ✅ | ❌ |
 
-The branch may already have a worktree. Check:
-```bash
-cd your-repo
-git worktree list
-```
+## Real-World Example
 
-### "Permission denied"
+From the Medflyt healthcare platform (10+ repos, 100+ developers):
 
-Ensure hyve is executable:
-```bash
-chmod +x ~/.hyve/bin/hyve
+```yaml
+required_repos: [server, webapp, mobile, socketio]
+
+services:
+  definitions:
+    server:
+      default_port: 3000
+      health_check: "http://localhost:${port}/"
+    webapp:
+      default_port: 3001
+      depends_on: [server]
+      pre_run: "pnpm openapi:local"  # Regenerate API types
+    mobile:
+      default_port: 8080
+      depends_on: [server]
 ```
 
 ## Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions welcome! This started as an internal tool at Medflyt and we're excited to share it.
+
+## Support
+
+If Hyve saves you time, consider buying me a coffee:
+
+<a href="https://buymeacoffee.com/eladkishon">
+  <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
+</a>
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+MIT
 
 ---
 
 <p align="center">
-  <strong>⬡ Hyve</strong> - Isolated workspaces for the hive mind
+  <strong>Hyve</strong> - Full-stack isolation for the hive mind
 </p>
