@@ -270,91 +270,67 @@
       font-size: 0.65rem;
     }
 
-    /* Terminal */
-    .terminal-section {
-      width: 100%;
-      max-width: 500px;
+    /* How it works */
+    .how-it-works {
       margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 600px;
     }
 
-    .terminal {
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
       background: #0a0a0a;
       border: 1px solid #222;
       border-radius: 8px;
-      overflow: hidden;
+      padding: 14px 18px;
     }
 
-    .terminal-header {
-      background: #111;
-      padding: 8px 12px;
-      display: flex;
-      gap: 6px;
-      border-bottom: 1px solid #222;
-    }
-
-    .terminal-dot {
-      width: 10px;
-      height: 10px;
+    .step-num {
+      background: #dc2626;
+      color: #fff;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
-    }
-
-    .terminal-dot.red { background: #dc2626; }
-    .terminal-dot.yellow { background: #ca8a04; }
-    .terminal-dot.green { background: #16a34a; }
-
-    .terminal-body {
-      padding: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      height: 80px;
-      overflow-y: auto;
-    }
-
-    .terminal-line {
-      margin-bottom: 3px;
-      color: #888;
-    }
-
-    .terminal-line.dim { color: #555; }
-    .terminal-line.success { color: #22c55e; }
-
-    .terminal-input-area {
-      padding: 8px 12px;
-      border-top: 1px solid #222;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
-    .terminal-prompt { color: #dc2626; }
+    .step-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
-    .terminal-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #fff;
+    .step-content code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      outline: none;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+
+    .step-desc {
+      color: #666;
+      font-size: 0.75rem;
     }
 
     .cta {
-      margin-top: 24px;
+      margin-top: 30px;
       text-align: center;
     }
 
-    .cta-text {
-      color: #555;
-      font-size: 0.75rem;
-      margin-bottom: 8px;
-    }
-
     .cta code {
-      background: #1a1a1a;
-      padding: 8px 16px;
-      border-radius: 6px;
+      background: #dc2626;
+      padding: 12px 24px;
+      border-radius: 8px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: #fff;
       display: inline-block;
     }
@@ -503,68 +479,37 @@
       </div>
     </div>
 
-    <!-- Terminal -->
-    <div class="terminal-section">
-      <div class="terminal">
-        <div class="terminal-header">
-          <div class="terminal-dot red"></div>
-          <div class="terminal-dot yellow"></div>
-          <div class="terminal-dot green"></div>
+    <!-- How it works -->
+    <div class="how-it-works">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <code>hyve create auth-feature server webapp</code>
+          <span class="step-desc">Creates isolated workspace with git branch + cloned database</span>
         </div>
-        <div class="terminal-body" id="terminal-body">
-          <div class="terminal-line dim"># Create a workspace and start coding</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <code>hyve run auth-feature</code>
+          <span class="step-desc">Starts all services on unique ports (no conflicts)</span>
         </div>
-        <div class="terminal-input-area">
-          <span class="terminal-prompt">$</span>
-          <input type="text" class="terminal-input" id="terminal-input" placeholder="hyve work my-feature server webapp" autocomplete="off">
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <code>claude-code --cwd ~/workspaces/auth-feature</code>
+          <span class="step-desc">Point any AI agent at the workspace - it's fully isolated</span>
         </div>
       </div>
     </div>
 
     <div class="cta">
-      <div class="cta-text">Get started in seconds</div>
-      <code>npx hyve-cli create my-feature server webapp</code>
+      <code>npm install -g hyve-cli</code>
     </div>
   </div>
 
   <script>
-    const input = document.getElementById('terminal-input');
-    const body = document.getElementById('terminal-body');
-
-    function addLine(text, cls = '') {
-      const line = document.createElement('div');
-      line.className = 'terminal-line ' + cls;
-      line.textContent = text;
-      body.appendChild(line);
-      body.scrollTop = body.scrollHeight;
-    }
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        const cmd = input.value.trim();
-        addLine('$ ' + cmd, 'dim');
-
-        if (cmd.startsWith('hyve work') || cmd.startsWith('hyve create')) {
-          const name = cmd.split(' ')[2] || 'my-feature';
-          setTimeout(() => addLine(`✓ Created workspace '${name}'`, 'success'), 200);
-          setTimeout(() => addLine(`  Branch: feature/${name}`, ''), 400);
-          setTimeout(() => addLine(`  Database cloned to :5503`, ''), 600);
-          setTimeout(() => addLine(`✓ Services running`, 'success'), 800);
-          setTimeout(() => addLine(`  Ready for your AI agent!`, 'success'), 1000);
-        } else if (cmd === 'hyve status') {
-          setTimeout(() => {
-            addLine('auth-feature/  ● Claude working', 'success');
-            addLine('billing-api/   ● Cursor working', 'success');
-            addLine('ui-refactor/   ● Aider working', 'success');
-          }, 200);
-        } else {
-          setTimeout(() => addLine('Try: hyve work <name> server webapp', ''), 200);
-        }
-
-        input.value = '';
-      }
-    });
-
     // Animate activities
     const activities = [
       ['Adding JWT middleware...', '✓ Created auth.controller.ts', '✓ Updated routes.ts', 'Running tests...'],
@@ -581,7 +526,7 @@
         activityLines[0].textContent = activities[i][indices[i]];
         activityLines[1].textContent = activities[i][(indices[i] + 1) % activities[i].length];
       });
-    }, 2000);
+    }, 2500);
   </script>
 </body>
 </html>
