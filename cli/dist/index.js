@@ -693,8 +693,6 @@ var runCommand = new Command5("run").description("Start all services for a works
   const logsDir = join5(workspaceDir, ".hyve", "logs");
   mkdirSync2(logsDir, { recursive: true });
   if (wsConfig?.database?.container) {
-    const dbSpinner = p4.spinner();
-    dbSpinner.start("Starting database...");
     try {
       const { stdout } = await execa2("docker", [
         "inspect",
@@ -703,15 +701,35 @@ var runCommand = new Command5("run").description("Start all services for a works
         wsConfig.database.container
       ]);
       if (stdout.trim() !== "true") {
+        const dbSpinner = p4.spinner();
+        dbSpinner.start("Starting database...");
         await execa2("docker", ["start", wsConfig.database.container]);
+        dbSpinner.stop("Database started");
+      } else {
+        p4.log.success("Database already running");
       }
-      dbSpinner.stop("Database running");
     } catch {
-      dbSpinner.stop("Database not found - run 'hyve create' again");
+      p4.log.warn("Database not found - run 'hyve create' again");
     }
   }
   const cleanupSpinner = p4.spinner();
   cleanupSpinner.start("Cleaning up stale processes...");
+  let killedCount = 0;
+  try {
+    const { stdout } = await execa2("pgrep", ["-f", workspaceDir]).catch(() => ({ stdout: "" }));
+    const pids = stdout.trim().split("\n").filter(Boolean);
+    for (const pid of pids) {
+      try {
+        await execa2("kill", ["-9", pid]);
+        killedCount++;
+      } catch {
+      }
+    }
+  } catch {
+  }
+  if (killedCount > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
+  }
   const portsToClean = /* @__PURE__ */ new Set();
   for (const repo of allRepos) {
     const svcConfig = config.services.definitions[repo];
@@ -727,22 +745,37 @@ var runCommand = new Command5("run").description("Start all services for a works
       portsToClean.add(wsPort);
     }
   }
-  let killedCount = 0;
   for (const port of portsToClean) {
     try {
-      const { stdout } = await execa2("lsof", ["-ti", `:${port}`]);
+      const { stdout } = await execa2("lsof", ["-ti", `:${port}`]).catch(() => ({ stdout: "" }));
       const pids = stdout.trim().split("\n").filter(Boolean);
       for (const pid of pids) {
-        try {
-          await execa2("kill", ["-9", pid]);
-          killedCount++;
-        } catch {
-        }
+        await execa2("kill", ["-9", pid]).catch(() => {
+        });
+        killedCount++;
       }
     } catch {
     }
   }
-  cleanupSpinner.stop(killedCount > 0 ? `Killed ${killedCount} stale process(es)` : "No stale processes");
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  let finalKillCount = 0;
+  for (const port of portsToClean) {
+    try {
+      const { stdout } = await execa2("lsof", ["-ti", `:${port}`]).catch(() => ({ stdout: "" }));
+      const pids = stdout.trim().split("\n").filter(Boolean);
+      for (const pid of pids) {
+        await execa2("kill", ["-9", pid]).catch(() => {
+        });
+        finalKillCount++;
+      }
+    } catch {
+    }
+  }
+  if (finalKillCount > 0) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const totalKilled = killedCount + finalKillCount;
+  cleanupSpinner.stop(totalKilled > 0 ? `Killed ${totalKilled} stale process(es)` : "No stale processes");
   const serviceConfigs = config.services.definitions;
   const startOrder = topologicalSort(allRepos, serviceConfigs);
   p4.log.info(`Start order: ${startOrder.join(" \u2192 ")}`);
@@ -808,8 +841,11 @@ var runCommand = new Command5("run").description("Start all services for a works
       initialValue: true
     });
     if (!p4.isCancel(shouldOpen) && shouldOpen) {
-      for (const url of openUrls) {
-        await execa2("open", [url]);
+      const [firstUrl, ...restUrls] = openUrls;
+      await execa2("open", ["-na", "Google Chrome", "--args", "--new-window", firstUrl]);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      for (const url of restUrls) {
+        await execa2("open", ["-a", "Google Chrome", url]);
       }
     }
   }
@@ -822,16 +858,22 @@ var runCommand = new Command5("run").description("Start all services for a works
 });
 async function waitForHealth(url, timeoutMs) {
   const start = Date.now();
+  let attempts = 0;
   while (Date.now() - start < timeoutMs) {
+    attempts++;
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2e3) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(5e3) });
       if (response.ok) {
         return true;
       }
-    } catch {
+    } catch (err) {
+      if (attempts % 10 === 1) {
+        console.log(`  [health check] ${url} - attempt ${attempts}: ${err.message || "failed"}`);
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 1e3));
   }
+  console.log(`  [health check] ${url} - timed out after ${attempts} attempts`);
   return false;
 }
 function topologicalSort(repos, serviceConfigs) {
@@ -895,6 +937,7 @@ async function startService(repo, ctx) {
   const logFile = join5(logsDir, `${repo}.log`);
   const pidFile = join5(logsDir, `${repo}.pid`);
   const shellWrapper = config.services.shell_wrapper || "";
+  writeFileSync3(logFile, "");
   const spinner2 = p4.spinner();
   const deps = serviceConfig.depends_on || [];
   if (deps.length > 0) {
@@ -903,12 +946,13 @@ async function startService(repo, ctx) {
       const depPort = runningServices.get(dep);
       if (depConfig?.health_check && depPort) {
         const healthUrl = depConfig.health_check.replace("${port}", String(depPort));
-        spinner2.start(`Waiting for ${chalk5.cyan(dep)} to be healthy...`);
-        const healthy = await waitForHealth(healthUrl, 3e4);
+        spinner2.start(`Waiting for ${chalk5.cyan(dep)} to be healthy (up to 5 min)...`);
+        const healthy = await waitForHealth(healthUrl, 3e5);
         if (healthy) {
           spinner2.stop(`${dep} is healthy`);
         } else {
-          spinner2.stop(`${dep} health check timed out (continuing anyway)`);
+          spinner2.stop(`${chalk5.red(dep)} health check failed - dependency not running`);
+          return { name: repo, port, error: `Dependency ${dep} is not healthy` };
         }
       }
     }
@@ -958,6 +1002,19 @@ async function startService(repo, ctx) {
     await new Promise((resolve) => setTimeout(resolve, 2e3));
     try {
       process.kill(child.pid, 0);
+      if (serviceConfig.health_check) {
+        const healthUrl = serviceConfig.health_check.replace("${port}", String(port));
+        spinner2.stop(`${chalk5.cyan(repo)} process started, waiting for health check...`);
+        spinner2.start(`Waiting for ${chalk5.cyan(repo)} to be healthy (up to 5 min)...`);
+        const healthy = await waitForHealth(healthUrl, 3e5);
+        if (healthy) {
+          spinner2.stop(`${chalk5.cyan(repo)} is healthy (PID ${child.pid})`);
+          return { name: repo, port, pid: child.pid };
+        } else {
+          spinner2.stop(`${chalk5.red(repo)} health check failed`);
+          return { name: repo, port, error: "Health check timeout" };
+        }
+      }
       spinner2.stop(`${chalk5.cyan(repo)} started (PID ${child.pid})`);
       return { name: repo, port, pid: child.pid };
     } catch {

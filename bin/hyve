@@ -11,5 +11,9 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 CLI_DIR="$(dirname "$SCRIPT_DIR")/cli"
 
+# Use nvm to ensure Node 22 (required for fetch)
+source ~/.nvm/nvm.sh 2>/dev/null
+nvm use 22 >/dev/null 2>&1
+
 # Run the CLI with Node.js
 exec node "$CLI_DIR/dist/index.js" "$@"

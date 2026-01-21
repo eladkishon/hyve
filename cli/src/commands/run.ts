@@ -95,8 +95,6 @@ export const runCommand = new Command("run")
 
     // Start database if configured
     if (wsConfig?.database?.container) {
-      const dbSpinner = p.spinner();
-      dbSpinner.start("Starting database...");
       try {
         const { stdout } = await execa("docker", [
           "inspect",
@@ -105,22 +103,47 @@ export const runCommand = new Command("run")
           wsConfig.database.container,
         ]);
         if (stdout.trim() !== "true") {
+          const dbSpinner = p.spinner();
+          dbSpinner.start("Starting database...");
           await execa("docker", ["start", wsConfig.database.container]);
+          dbSpinner.stop("Database started");
+        } else {
+          p.log.success("Database already running");
         }
-        dbSpinner.stop("Database running");
       } catch {
-        dbSpinner.stop("Database not found - run 'hyve create' again");
+        p.log.warn("Database not found - run 'hyve create' again");
       }
     }
 
-    // Kill any processes on default ports (cleanup stale processes)
+    // Kill any processes from this workspace (by path) and on target ports
     const cleanupSpinner = p.spinner();
     cleanupSpinner.start("Cleaning up stale processes...");
+
+    let killedCount = 0;
+
+    // First: Kill ALL processes that contain this workspace path
+    // This catches nodemon, tsc, concurrently, node server.js etc
+    try {
+      const { stdout } = await execa("pgrep", ["-f", workspaceDir]).catch(() => ({ stdout: "" }));
+      const pids = stdout.trim().split("\n").filter(Boolean);
+      for (const pid of pids) {
+        try {
+          await execa("kill", ["-9", pid]);
+          killedCount++;
+        } catch {}
+      }
+    } catch {}
+
+    // Wait for processes to die
+    if (killedCount > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // Second: Clean up any processes on target ports (in case of orphans)
     const portsToClean = new Set<number>();
     for (const repo of allRepos) {
       const svcConfig = config.services.definitions[repo];
       if (svcConfig) {
-        // Add both default port and workspace port
         portsToClean.add(svcConfig.default_port);
         const wsPort = calculateServicePort(
           repo,
@@ -133,22 +156,39 @@ export const runCommand = new Command("run")
       }
     }
 
-    let killedCount = 0;
     for (const port of portsToClean) {
       try {
-        const { stdout } = await execa("lsof", ["-ti", `:${port}`]);
+        const { stdout } = await execa("lsof", ["-ti", `:${port}`]).catch(() => ({ stdout: "" }));
         const pids = stdout.trim().split("\n").filter(Boolean);
         for (const pid of pids) {
-          try {
-            await execa("kill", ["-9", pid]);
-            killedCount++;
-          } catch {}
+          await execa("kill", ["-9", pid]).catch(() => {});
+          killedCount++;
         }
-      } catch {
-        // No process on this port
-      }
+      } catch {}
     }
-    cleanupSpinner.stop(killedCount > 0 ? `Killed ${killedCount} stale process(es)` : "No stale processes");
+
+    // Wait for ports to be released
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Final verification - ensure all ports are free
+    let finalKillCount = 0;
+    for (const port of portsToClean) {
+      try {
+        const { stdout } = await execa("lsof", ["-ti", `:${port}`]).catch(() => ({ stdout: "" }));
+        const pids = stdout.trim().split("\n").filter(Boolean);
+        for (const pid of pids) {
+          await execa("kill", ["-9", pid]).catch(() => {});
+          finalKillCount++;
+        }
+      } catch {}
+    }
+
+    if (finalKillCount > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    const totalKilled = killedCount + finalKillCount;
+    cleanupSpinner.stop(totalKilled > 0 ? `Killed ${totalKilled} stale process(es)` : "No stale processes");
 
     // Build dependency graph and determine start order
     const serviceConfigs = config.services.definitions;
@@ -236,8 +276,13 @@ export const runCommand = new Command("run")
       });
 
       if (!p.isCancel(shouldOpen) && shouldOpen) {
-        for (const url of openUrls) {
-          await execa("open", [url]);
+        // Open first URL in a new Chrome window, rest as tabs in same window
+        const [firstUrl, ...restUrls] = openUrls;
+        await execa("open", ["-na", "Google Chrome", "--args", "--new-window", firstUrl]);
+        // Small delay to ensure window is created
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        for (const url of restUrls) {
+          await execa("open", ["-a", "Google Chrome", url]);
         }
       }
     }
@@ -258,17 +303,23 @@ export const runCommand = new Command("run")
 // Wait for a health check URL to respond
 async function waitForHealth(url: string, timeoutMs: number): Promise<boolean> {
   const start = Date.now();
+  let attempts = 0;
   while (Date.now() - start < timeoutMs) {
+    attempts++;
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (response.ok) {
         return true;
       }
-    } catch {
-      // Ignore errors, keep trying
+    } catch (err: any) {
+      // Log every 10 attempts
+      if (attempts % 10 === 1) {
+        console.log(`  [health check] ${url} - attempt ${attempts}: ${err.message || 'failed'}`);
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
+  console.log(`  [health check] ${url} - timed out after ${attempts} attempts`);
   return false;
 }
 
@@ -367,6 +418,9 @@ async function startService(
   const pidFile = join(logsDir, `${repo}.pid`);
   const shellWrapper = config.services.shell_wrapper || "";
 
+  // Clear log file on new run (truncate if exists, create if not)
+  writeFileSync(logFile, "");
+
   const spinner = p.spinner();
 
   // Wait for dependencies to be healthy before pre_run
@@ -377,12 +431,13 @@ async function startService(
       const depPort = runningServices.get(dep);
       if (depConfig?.health_check && depPort) {
         const healthUrl = depConfig.health_check.replace("${port}", String(depPort));
-        spinner.start(`Waiting for ${chalk.cyan(dep)} to be healthy...`);
-        const healthy = await waitForHealth(healthUrl, 30000);
+        spinner.start(`Waiting for ${chalk.cyan(dep)} to be healthy (up to 5 min)...`);
+        const healthy = await waitForHealth(healthUrl, 300000); // 5 minutes for initial compile
         if (healthy) {
           spinner.stop(`${dep} is healthy`);
         } else {
-          spinner.stop(`${dep} health check timed out (continuing anyway)`);
+          spinner.stop(`${chalk.red(dep)} health check failed - dependency not running`);
+          return { name: repo, port, error: `Dependency ${dep} is not healthy` };
         }
       }
     }
@@ -454,6 +509,22 @@ async function startService(
 
     try {
       process.kill(child.pid!, 0);
+
+      // If this service has a health check, wait for it to be healthy
+      if (serviceConfig.health_check) {
+        const healthUrl = serviceConfig.health_check.replace("${port}", String(port));
+        spinner.stop(`${chalk.cyan(repo)} process started, waiting for health check...`);
+        spinner.start(`Waiting for ${chalk.cyan(repo)} to be healthy (up to 5 min)...`);
+        const healthy = await waitForHealth(healthUrl, 300000);
+        if (healthy) {
+          spinner.stop(`${chalk.cyan(repo)} is healthy (PID ${child.pid})`);
+          return { name: repo, port, pid: child.pid };
+        } else {
+          spinner.stop(`${chalk.red(repo)} health check failed`);
+          return { name: repo, port, error: "Health check timeout" };
+        }
+      }
+
       spinner.stop(`${chalk.cyan(repo)} started (PID ${child.pid})`);
       return { name: repo, port, pid: child.pid };
     } catch {
