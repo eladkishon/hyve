@@ -12,6 +12,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/eladkishon/hyve/actions/workflows/ci.yml">
+    <img src="https://github.com/eladkishon/hyve/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://github.com/eladkishon/hyve/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
+  </a>
+  <a href="https://github.com/eladkishon/hyve">
+    <img src="https://img.shields.io/github/stars/eladkishon/hyve?style=social" alt="GitHub Stars">
+  </a>
+</p>
+
+<p align="center">
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#features">Features</a> •
@@ -243,16 +255,97 @@ Workspace 1: server:5000, webapp:5001, db:5501
 
 All automatically configured in .env files.
 
-## vs Other Tools
+## VS Code Integration
 
-| Feature | Hyve | gwq | gtr | git worktree |
-|---------|------|-----|-----|--------------|
-| Multi-repo worktrees | ✅ | ❌ | ✅ | ❌ |
-| Database isolation | ✅ | ❌ | ❌ | ❌ |
-| Service orchestration | ✅ | ❌ | ❌ | ❌ |
-| Port management | ✅ | ❌ | ❌ | ❌ |
-| Health checks | ✅ | ❌ | ❌ | ❌ |
-| .env configuration | ✅ | ❌ | ✅ | ❌ |
+Hyve automatically updates your VS Code workspace file (`.code-workspace`) when creating workspaces:
+
+```
+my-project.code-workspace
+├── server              # Main repo
+├── webapp              # Main repo
+├── [feature-a] server  # Workspace worktree
+├── [feature-a] webapp  # Workspace worktree
+├── [feature-b] server  # Another workspace
+└── [feature-b] webapp
+```
+
+All your workspaces appear in the same VS Code window, organized by feature. Switch between features instantly without opening new windows.
+
+## Claude Code Integration
+
+### Slash Commands
+
+Install slash commands for Claude Code:
+
+```bash
+hyve install-commands
+```
+
+This adds commands to your project's `.claude/commands/`:
+
+| Command | Description |
+|---------|-------------|
+| `/hyve-create <name>` | Create a new workspace |
+| `/hyve-work <name>` | Set context for working in a workspace |
+| `/hyve-status` | Check workspace and service status |
+| `/hyve-cleanup <name>` | Remove a workspace |
+
+### MCP Server
+
+Hyve includes an MCP server so Claude can manage workspaces directly:
+
+```json
+// claude_desktop_config.json
+{
+  "mcpServers": {
+    "hyve": {
+      "command": "node",
+      "args": ["~/.hyve/mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Available MCP tools:
+- `hyve_create` - Create workspace
+- `hyve_run` - Start services
+- `hyve_halt` - Stop services
+- `hyve_status` - Get status
+- `hyve_list` - List workspaces
+- `hyve_cleanup` - Remove workspace
+
+### Agent Session Tracking
+
+Track which AI agents are working on which workspaces:
+
+```bash
+# Register an agent session
+hyve agent start my-feature --description "Implementing auth flow"
+
+# List active sessions
+hyve agent list
+# Output:
+#   a1b2c3d4 → my-feature (2h)
+#     Implementing auth flow
+#   e5f6g7h8 → billing (45m)
+#     Adding Stripe integration
+
+# End a session
+hyve agent stop a1b2c3d4
+
+# Clean up stale sessions
+hyve agent clean
+```
+
+### CLAUDE.md Generation
+
+Every workspace gets an auto-generated `CLAUDE.md` with:
+- Workspace branch and location
+- Database connection info
+- Service ports table
+- Quick command reference
+
+This gives Claude instant context when working in a workspace.
 
 ## Real-World Example
 

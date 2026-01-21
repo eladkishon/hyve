@@ -1,0 +1,22 @@
+{
+  "name": "@hyve/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Hyve workspace management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "hyve-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm",
+    "dev": "tsup src/index.ts --format esm --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

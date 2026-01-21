@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // src/index.ts
-import { Command as Command8 } from "commander";
-import chalk8 from "chalk";
+import { Command as Command10 } from "commander";
+import chalk10 from "chalk";
 
 // src/commands/create.ts
 import { Command } from "commander";
@@ -123,6 +123,63 @@ function getWorkspaceIndex(name) {
 }
 
 // src/commands/create.ts
+function generateClaudeMd(name, branch, repos, dbPort, servicePorts, workspaceDir) {
+  const lines = [];
+  lines.push(`# Hyve Workspace: ${name}`);
+  lines.push("");
+  lines.push("This is an isolated feature workspace created by Hyve.");
+  lines.push("");
+  lines.push("## Workspace Info");
+  lines.push("");
+  lines.push(`- **Branch:** \`${branch}\``);
+  lines.push(`- **Location:** \`${workspaceDir}\``);
+  lines.push(`- **Repos:** ${repos.join(", ")}`);
+  lines.push("");
+  if (dbPort) {
+    lines.push("## Database");
+    lines.push("");
+    lines.push(`This workspace has an isolated PostgreSQL database on port **${dbPort}**.`);
+    lines.push("");
+    lines.push("```bash");
+    lines.push(`# Connect to workspace database`);
+    lines.push(`hyve db ${name}`);
+    lines.push("```");
+    lines.push("");
+  }
+  lines.push("## Service Ports");
+  lines.push("");
+  lines.push("| Service | Port |");
+  lines.push("|---------|------|");
+  for (const [service, port] of Object.entries(servicePorts)) {
+    lines.push(`| ${service} | ${port} |`);
+  }
+  lines.push("");
+  lines.push("## Commands");
+  lines.push("");
+  lines.push("```bash");
+  lines.push(`# Start all services`);
+  lines.push(`hyve run ${name}`);
+  lines.push("");
+  lines.push(`# Stop all services`);
+  lines.push(`hyve halt ${name}`);
+  lines.push("");
+  lines.push(`# Check status`);
+  lines.push(`hyve status ${name}`);
+  lines.push("");
+  lines.push(`# Cleanup when done`);
+  lines.push(`hyve cleanup ${name}`);
+  lines.push("```");
+  lines.push("");
+  lines.push("## Working in This Workspace");
+  lines.push("");
+  lines.push("Each repo directory is a git worktree on the feature branch.");
+  lines.push("Changes made here are isolated from other workspaces and the main repos.");
+  lines.push("");
+  lines.push("The `.env` files have been configured with workspace-specific ports.");
+  lines.push("You can run the full stack without conflicting with other workspaces.");
+  lines.push("");
+  return lines.join("\n");
+}
 var createCommand = new Command("create").description("Create a new feature workspace").argument("[name]", "Feature name").argument("[repos...]", "Additional repos to include").option("--from <branch>", "Create from existing branch").option("--existing", "Select from existing branches").option("--no-setup", "Skip running setup scripts").action(async (name, repos, options) => {
   const config = loadConfig();
   if (!name) {
@@ -429,6 +486,20 @@ ${envContent}`;
       break;
     }
   }
+  console.log(chalk.dim("Generating CLAUDE.md..."));
+  const servicePorts = {};
+  for (const [serviceName, serviceConfig] of Object.entries(config.services.definitions)) {
+    servicePorts[serviceName] = calculateServicePort(
+      serviceName,
+      serviceConfig.default_port,
+      config.services.base_port,
+      workspaceIndex,
+      config.services.port_offset
+    );
+  }
+  const claudeMd = generateClaudeMd(name, branchName, successfulRepos, dbPort, servicePorts, workspaceDir);
+  writeFileSync(join3(workspaceDir, "CLAUDE.md"), claudeMd);
+  console.log(chalk.green(`  \u2713 CLAUDE.md generated`));
   console.log();
   console.log(chalk.green.bold("\u2713 Workspace Ready!"));
   console.log();
@@ -1364,21 +1435,191 @@ var dbCommand = new Command7("db").description("Connect to workspace database").
   );
 });
 
+// src/commands/install-commands.ts
+import { Command as Command8 } from "commander";
+import chalk8 from "chalk";
+import { existsSync as existsSync7, mkdirSync as mkdirSync3, copyFileSync as copyFileSync2, readdirSync as readdirSync2 } from "fs";
+import { join as join7, dirname as dirname2 } from "path";
+import { fileURLToPath } from "url";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = dirname2(__filename);
+var installCommandsCommand = new Command8("install-commands").description("Install Claude Code slash commands").action(async () => {
+  const projectRoot = getProjectRoot();
+  const claudeDir = join7(projectRoot, ".claude", "commands");
+  const hyveRoot = join7(__dirname, "..", "..", "..");
+  const commandsSource = join7(hyveRoot, "commands");
+  if (!existsSync7(commandsSource)) {
+    console.error(chalk8.red("Commands source directory not found"));
+    console.error(chalk8.dim(`Expected: ${commandsSource}`));
+    process.exit(1);
+  }
+  if (!existsSync7(claudeDir)) {
+    mkdirSync3(claudeDir, { recursive: true });
+    console.log(chalk8.dim(`Created ${claudeDir}`));
+  }
+  const files = readdirSync2(commandsSource).filter((f) => f.endsWith(".md"));
+  if (files.length === 0) {
+    console.error(chalk8.yellow("No command files found to install"));
+    process.exit(0);
+  }
+  console.log(chalk8.dim("Installing Claude Code commands..."));
+  for (const file of files) {
+    const source = join7(commandsSource, file);
+    const dest = join7(claudeDir, file);
+    copyFileSync2(source, dest);
+    const commandName = file.replace(".md", "");
+    console.log(chalk8.green(`  \u2713 /${commandName}`));
+  }
+  console.log();
+  console.log(chalk8.green.bold("Commands installed!"));
+  console.log();
+  console.log(chalk8.dim("Available commands:"));
+  for (const file of files) {
+    const commandName = file.replace(".md", "");
+    console.log(chalk8.cyan(`  /${commandName}`));
+  }
+  console.log();
+  console.log(chalk8.dim("Usage in Claude Code: Type the command name, e.g., /hyve-create my-feature"));
+});
+
+// src/commands/agent.ts
+import { Command as Command9 } from "commander";
+import chalk9 from "chalk";
+import { existsSync as existsSync8, readFileSync as readFileSync6, writeFileSync as writeFileSync4, mkdirSync as mkdirSync4 } from "fs";
+import { join as join8 } from "path";
+function getAgentFile() {
+  const projectRoot = getProjectRoot();
+  return join8(projectRoot, ".hyve", "agents.json");
+}
+function loadAgents() {
+  const file = getAgentFile();
+  if (!existsSync8(file)) {
+    return [];
+  }
+  try {
+    return JSON.parse(readFileSync6(file, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+function saveAgents(agents) {
+  const file = getAgentFile();
+  const dir = join8(getProjectRoot(), ".hyve");
+  if (!existsSync8(dir)) {
+    mkdirSync4(dir, { recursive: true });
+  }
+  writeFileSync4(file, JSON.stringify(agents, null, 2));
+}
+function generateId() {
+  return Math.random().toString(36).substring(2, 10);
+}
+var agentCommand = new Command9("agent").description("Manage agent sessions on workspaces").addCommand(
+  new Command9("start").description("Register an agent session on a workspace").argument("<workspace>", "Workspace name").option("-d, --description <desc>", "Description of what the agent is working on").action((workspace, options) => {
+    const workspaceDir = getWorkspaceDir(workspace);
+    if (!existsSync8(workspaceDir)) {
+      console.error(chalk9.red(`Workspace not found: ${workspace}`));
+      process.exit(1);
+    }
+    const agents = loadAgents();
+    const session = {
+      id: generateId(),
+      workspace,
+      started: (/* @__PURE__ */ new Date()).toISOString(),
+      description: options.description,
+      pid: process.ppid
+      // Parent process (likely the agent)
+    };
+    agents.push(session);
+    saveAgents(agents);
+    console.log(chalk9.green(`Agent session started: ${session.id}`));
+    console.log(chalk9.dim(`  Workspace: ${workspace}`));
+    if (options.description) {
+      console.log(chalk9.dim(`  Task: ${options.description}`));
+    }
+  })
+).addCommand(
+  new Command9("stop").description("End an agent session").argument("<id>", "Session ID").action((id) => {
+    const agents = loadAgents();
+    const index = agents.findIndex((a) => a.id === id);
+    if (index === -1) {
+      console.error(chalk9.red(`Session not found: ${id}`));
+      process.exit(1);
+    }
+    const session = agents[index];
+    agents.splice(index, 1);
+    saveAgents(agents);
+    console.log(chalk9.green(`Agent session ended: ${id}`));
+    console.log(chalk9.dim(`  Workspace: ${session.workspace}`));
+  })
+).addCommand(
+  new Command9("list").description("List active agent sessions").action(() => {
+    const agents = loadAgents();
+    if (agents.length === 0) {
+      console.log(chalk9.dim("No active agent sessions"));
+      return;
+    }
+    console.log(chalk9.bold("Active Agent Sessions"));
+    console.log();
+    for (const agent of agents) {
+      const duration = timeSince(new Date(agent.started));
+      console.log(
+        chalk9.cyan(`  ${agent.id}`) + chalk9.dim(` \u2192 `) + chalk9.white(agent.workspace) + chalk9.dim(` (${duration})`)
+      );
+      if (agent.description) {
+        console.log(chalk9.dim(`    ${agent.description}`));
+      }
+    }
+  })
+).addCommand(
+  new Command9("clean").description("Remove stale agent sessions").action(() => {
+    const agents = loadAgents();
+    const active = [];
+    let removed = 0;
+    for (const agent of agents) {
+      if (agent.pid) {
+        try {
+          process.kill(agent.pid, 0);
+          active.push(agent);
+        } catch {
+          removed++;
+        }
+      } else {
+        const age = Date.now() - new Date(agent.started).getTime();
+        if (age < 24 * 60 * 60 * 1e3) {
+          active.push(agent);
+        } else {
+          removed++;
+        }
+      }
+    }
+    saveAgents(active);
+    console.log(chalk9.green(`Cleaned ${removed} stale session(s)`));
+    console.log(chalk9.dim(`${active.length} active session(s) remaining`));
+  })
+);
+function timeSince(date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1e3);
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
 // src/index.ts
 var VERSION = "2.0.0";
 var logo = `
-${chalk8.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
+${chalk10.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
          \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584
-       \u2584\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2584
-      \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
-     \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
-    \u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588
-   \u2580\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2588\u2588\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2580
-    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2580
-     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk8.black(`\u2580\u2580`)}${chalk8.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
+       \u2584\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2584
+      \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
+     \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
+    \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
+   \u2580\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2588\u2588\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2580
+    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2580
+     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
        \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580
          \u2580\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580\u2580`)}
-${chalk8.white.bold(`
+${chalk10.white.bold(`
     \u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557
@@ -1386,10 +1627,10 @@ ${chalk8.white.bold(`
     \u2588\u2588\u2551  \u2588\u2588\u2551   \u2588\u2588\u2551    \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u255A\u2550\u255D  \u255A\u2550\u255D   \u255A\u2550\u255D     \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D`)}
 `;
-var program = new Command8();
-program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand);
+var program = new Command10();
+program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand).addCommand(installCommandsCommand).addCommand(agentCommand);
 program.hook("preAction", () => {
-  console.log(chalk8.red("\u2B21") + " " + chalk8.white.bold("hyve"));
+  console.log(chalk10.red("\u2B21") + " " + chalk10.white.bold("hyve"));
   console.log();
 });
 program.parse();

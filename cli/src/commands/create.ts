@@ -17,6 +17,77 @@ import {
   calculateServicePort,
 } from "../utils.js";
 
+function generateClaudeMd(
+  name: string,
+  branch: string,
+  repos: string[],
+  dbPort: number | undefined,
+  servicePorts: Record<string, number>,
+  workspaceDir: string
+): string {
+  const lines: string[] = [];
+
+  lines.push(`# Hyve Workspace: ${name}`);
+  lines.push("");
+  lines.push("This is an isolated feature workspace created by Hyve.");
+  lines.push("");
+  lines.push("## Workspace Info");
+  lines.push("");
+  lines.push(`- **Branch:** \`${branch}\``);
+  lines.push(`- **Location:** \`${workspaceDir}\``);
+  lines.push(`- **Repos:** ${repos.join(", ")}`);
+  lines.push("");
+
+  if (dbPort) {
+    lines.push("## Database");
+    lines.push("");
+    lines.push(`This workspace has an isolated PostgreSQL database on port **${dbPort}**.`);
+    lines.push("");
+    lines.push("```bash");
+    lines.push(`# Connect to workspace database`);
+    lines.push(`hyve db ${name}`);
+    lines.push("```");
+    lines.push("");
+  }
+
+  lines.push("## Service Ports");
+  lines.push("");
+  lines.push("| Service | Port |");
+  lines.push("|---------|------|");
+  for (const [service, port] of Object.entries(servicePorts)) {
+    lines.push(`| ${service} | ${port} |`);
+  }
+  lines.push("");
+
+  lines.push("## Commands");
+  lines.push("");
+  lines.push("```bash");
+  lines.push(`# Start all services`);
+  lines.push(`hyve run ${name}`);
+  lines.push("");
+  lines.push(`# Stop all services`);
+  lines.push(`hyve halt ${name}`);
+  lines.push("");
+  lines.push(`# Check status`);
+  lines.push(`hyve status ${name}`);
+  lines.push("");
+  lines.push(`# Cleanup when done`);
+  lines.push(`hyve cleanup ${name}`);
+  lines.push("```");
+  lines.push("");
+
+  lines.push("## Working in This Workspace");
+  lines.push("");
+  lines.push("Each repo directory is a git worktree on the feature branch.");
+  lines.push("Changes made here are isolated from other workspaces and the main repos.");
+  lines.push("");
+  lines.push("The `.env` files have been configured with workspace-specific ports.");
+  lines.push("You can run the full stack without conflicting with other workspaces.");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
 export const createCommand = new Command("create")
   .description("Create a new feature workspace")
   .argument("[name]", "Feature name")
@@ -413,6 +484,23 @@ export const createCommand = new Command("create")
         break; // Only update the first workspace file found
       }
     }
+
+    // Generate CLAUDE.md for the workspace
+    console.log(chalk.dim("Generating CLAUDE.md..."));
+    const servicePorts: Record<string, number> = {};
+    for (const [serviceName, serviceConfig] of Object.entries(config.services.definitions)) {
+      servicePorts[serviceName] = calculateServicePort(
+        serviceName,
+        serviceConfig.default_port,
+        config.services.base_port,
+        workspaceIndex,
+        config.services.port_offset
+      );
+    }
+
+    const claudeMd = generateClaudeMd(name, branchName, successfulRepos, dbPort, servicePorts, workspaceDir);
+    writeFileSync(join(workspaceDir, "CLAUDE.md"), claudeMd);
+    console.log(chalk.green(`  ✓ CLAUDE.md generated`));
 
     // Summary
     console.log();

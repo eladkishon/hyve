@@ -8,6 +8,8 @@ import { statusCommand } from "./commands/status.js";
 import { runCommand } from "./commands/run.js";
 import { haltCommand } from "./commands/halt.js";
 import { dbCommand } from "./commands/db.js";
+import { installCommandsCommand } from "./commands/install-commands.js";
+import { agentCommand } from "./commands/agent.js";
 
 const VERSION = "2.0.0";
 
@@ -44,7 +46,9 @@ program
   .addCommand(statusCommand)
   .addCommand(runCommand)
   .addCommand(haltCommand)
-  .addCommand(dbCommand);
+  .addCommand(dbCommand)
+  .addCommand(installCommandsCommand)
+  .addCommand(agentCommand);
 
 program.hook("preAction", () => {
   console.log(chalk.red("⬡") + " " + chalk.white.bold("hyve"));
