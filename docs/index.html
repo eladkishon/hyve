@@ -60,8 +60,8 @@
     }
 
     .logo {
-      width: 200px;
-      margin-bottom: 24px;
+      width: 140px;
+      margin-bottom: 16px;
     }
 
     .tagline {
@@ -78,17 +78,16 @@
 
     .desc {
       color: #666;
-      font-size: 1rem;
-      line-height: 1.6;
-      margin-bottom: 24px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 20px;
     }
 
     .demo {
       display: flex;
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 12px;
       width: 100%;
-      max-width: 700px;
+      max-width: 680px;
     }
 
     .terminal {
@@ -121,8 +120,8 @@
     .terminal-dot.green { background: #16a34a; }
 
     .terminal-body {
-      padding: 12px;
-      height: 140px;
+      padding: 10px;
+      height: 120px;
       overflow-y: auto;
     }
 
@@ -185,8 +184,8 @@
     }
 
     .workspace-panel-body {
-      padding: 10px 12px;
-      height: 140px;
+      padding: 8px 10px;
+      height: 120px;
       overflow-y: auto;
     }
 
@@ -231,13 +230,13 @@
       left: 0;
       background: #1a1a1a;
       border: 1px solid #333;
-      border-radius: 6px;
-      margin-bottom: 4px;
-      max-height: 120px;
+      border-radius: 4px;
+      margin-bottom: 2px;
+      max-height: 90px;
       overflow-y: auto;
       display: none;
-      min-width: 200px;
-      box-shadow: 0 -4px 12px rgba(0,0,0,0.5);
+      min-width: 180px;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.5);
     }
 
     .autocomplete-dropdown.show {
@@ -245,11 +244,12 @@
     }
 
     .autocomplete-item {
-      padding: 6px 10px;
+      padding: 3px 8px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      font-size: 0.65rem;
     }
 
     .autocomplete-item:hover,
@@ -317,33 +317,22 @@
 
     .pills {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       justify-content: center;
       flex-wrap: wrap;
-      margin-top: 32px;
+      margin-top: 20px;
     }
 
     .pill {
-      padding: 10px 20px;
-      background: rgba(220, 38, 38, 0.1);
-      border: 1px solid rgba(220, 38, 38, 0.3);
+      padding: 8px 16px;
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid rgba(220, 38, 38, 0.4);
       border-radius: 100px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #fff;
       font-weight: 500;
     }
 
-    .footer {
-      position: absolute;
-      bottom: 16px;
-      color: #333;
-      font-size: 0.75rem;
-    }
-
-    .footer a {
-      color: #dc2626;
-      text-decoration: none;
-    }
   </style>
 </head>
 <body>
@@ -352,6 +341,7 @@
     <div class="glow"></div>
 
     <div class="header">
+      <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
       <a href="https://ko-fi.com/eladkishon" class="btn btn-ghost">☕ Support</a>
       <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
       <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
@@ -403,10 +393,6 @@
         <span class="pill">Port Management</span>
         <span class="pill">Claude Code Ready</span>
       </div>
-    </div>
-
-    <div class="footer">
-      by <a href="https://github.com/eladkishon">@eladkishon</a>
     </div>
   </div>
 
