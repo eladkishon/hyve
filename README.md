@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  <strong>Full-Stack Isolation for Multi-Repo Development</strong>
+  <strong>Isolated Workspaces for AI Agents & Multi-Repo Development</strong>
 </p>
 
 <p align="center">
-  Isolated workspaces with git worktrees, cloned databases, and service orchestration<br>
-  Perfect for parallel development and AI coding agents
+  Run multiple Claude Code, Cursor, or Aider sessions in parallel.<br>
+  Each agent gets isolated git branches, databases, and services.
 </p>
 
 <p align="center">
