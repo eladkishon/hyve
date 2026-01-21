@@ -220,16 +220,55 @@
       font-style: italic;
     }
 
-    .autocomplete-hint {
-      position: absolute;
-      color: #444;
-      pointer-events: none;
-      white-space: nowrap;
-    }
-
     .terminal-input-wrapper {
       position: relative;
       flex: 1;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+      display: none;
+      min-width: 200px;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.5);
+    }
+
+    .autocomplete-dropdown.show {
+      display: block;
+    }
+
+    .autocomplete-item {
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .autocomplete-item:hover,
+    .autocomplete-item.selected {
+      background: #dc2626;
+    }
+
+    .autocomplete-item .cmd {
+      color: #fff;
+    }
+
+    .autocomplete-item .desc {
+      color: #888;
+      font-size: 0.6rem;
+      margin-left: 12px;
+    }
+
+    .autocomplete-item.selected .desc {
+      color: #fca5a5;
     }
 
     .header {
@@ -312,6 +351,7 @@
     <div class="glow"></div>
 
     <div class="header">
+      <a href="https://ko-fi.com/eladkishon" class="btn btn-ghost">☕ Support</a>
       <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
       <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
     </div>
@@ -338,12 +378,12 @@
           <div class="terminal-body" id="terminal-body">
             <div class="terminal-line dim"># Type "hyve work auth" and press Enter</div>
           </div>
-          <div style="padding: 0 12px 12px;">
+          <div style="padding: 0 12px 12px; position: relative;">
+            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
             <div class="terminal-input-line">
               <span class="terminal-prompt">$</span>
               <div class="terminal-input-wrapper">
                 <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false">
-                <span class="autocomplete-hint" id="autocomplete-hint"></span>
               </div>
             </div>
           </div>
@@ -365,7 +405,7 @@
     </div>
 
     <div class="footer">
-      by <a href="https://github.com/eladkishon">@eladkishon</a> · <a href="https://ko-fi.com/eladkishon">☕ support</a>
+      by <a href="https://github.com/eladkishon">@eladkishon</a>
     </div>
   </div>
 
@@ -375,70 +415,68 @@
     const basePorts = { server: 4000, webapp: 4001, db: 5500 };
     const history = [];
     let historyIndex = -1;
+    let selectedIndex = 0;
 
-    const commands = [
-      'hyve create auth server webapp',
-      'hyve create billing server webapp',
-      'hyve work auth server webapp',
-      'hyve run auth',
-      'hyve status',
-      'hyve list',
-      'hyve cleanup auth',
-      'hyve db auth',
-      'hyve halt auth'
+    // All commands with descriptions
+    const allCommands = [
+      { cmd: 'hyve work', desc: 'Create + run workspace', args: '<name> [repos]' },
+      { cmd: 'hyve create', desc: 'Create workspace', args: '<name> [repos]' },
+      { cmd: 'hyve run', desc: 'Start services', args: '<name>' },
+      { cmd: 'hyve status', desc: 'List all workspaces', args: '' },
+      { cmd: 'hyve cleanup', desc: 'Remove workspace', args: '<name>' },
+      { cmd: 'hyve halt', desc: 'Stop services', args: '<name>' },
+      { cmd: 'hyve db', desc: 'Connect to database', args: '<name>' },
+      { cmd: 'hyve --help', desc: 'Show all commands', args: '' },
     ];
 
     const input = document.getElementById('terminal-input');
     const body = document.getElementById('terminal-body');
     const panel = document.getElementById('workspace-panel');
-    const hint = document.getElementById('autocomplete-hint');
+    const dropdown = document.getElementById('autocomplete-dropdown');
 
-    const subcommands = ['create', 'work', 'run', 'start', 'status', 'list', 'cleanup', 'halt', 'db'];
-
-    function getAutocomplete(val) {
-      if (!val) return 'hyve work auth server webapp';
-
-      const parts = val.split(' ').filter(p => p);
-
-      // Autocomplete "hyve"
-      if (parts.length === 1 && 'hyve'.startsWith(parts[0]) && parts[0] !== 'hyve') {
-        return 'hyve'.slice(parts[0].length);
-      }
-
-      // After "hyve", suggest subcommands
-      if (parts.length === 1 && parts[0] === 'hyve') {
-        return ' work';
-      }
-
-      // Autocomplete subcommand
-      if (parts.length === 2 && parts[0] === 'hyve') {
-        const sub = subcommands.find(s => s.startsWith(parts[1]) && s !== parts[1]);
-        if (sub) return sub.slice(parts[1].length);
-
-        // After complete subcommand, suggest args
-        if (parts[1] === 'create' || parts[1] === 'work') return ' auth server webapp';
-        if (parts[1] === 'run' || parts[1] === 'start' || parts[1] === 'cleanup' || parts[1] === 'halt' || parts[1] === 'db') {
-          const names = Object.keys(workspaces);
-          return names.length > 0 ? ' ' + names[0] : ' auth';
-        }
-      }
-
-      // "hyve create <name>" - suggest repos
-      if (parts.length === 3 && parts[0] === 'hyve' && parts[1] === 'create') {
-        return ' server webapp';
-      }
-
-      // Find matching full command
-      const match = commands.find(c => c.startsWith(val) && c !== val);
-      if (match) return match.slice(val.length);
-
-      return '';
+    function getMatches(val) {
+      if (!val) return allCommands;
+      const lower = val.toLowerCase();
+      return allCommands.filter(c => c.cmd.toLowerCase().startsWith(lower));
     }
 
-    function updateHint() {
+    function updateDropdown() {
       const val = input.value;
-      const completion = getAutocomplete(val);
-      hint.textContent = val + completion;
+      const matches = getMatches(val);
+
+      if (matches.length === 0 || (matches.length === 1 && matches[0].cmd === val)) {
+        dropdown.classList.remove('show');
+        return;
+      }
+
+      selectedIndex = Math.min(selectedIndex, matches.length - 1);
+
+      dropdown.innerHTML = matches.map((m, i) => `
+        <div class="autocomplete-item ${i === selectedIndex ? 'selected' : ''}" data-cmd="${m.cmd}">
+          <span class="cmd">${m.cmd} ${m.args}</span>
+          <span class="desc">${m.desc}</span>
+        </div>
+      `).join('');
+
+      dropdown.classList.add('show');
+
+      // Click handler
+      dropdown.querySelectorAll('.autocomplete-item').forEach(el => {
+        el.addEventListener('click', () => {
+          input.value = el.dataset.cmd + ' ';
+          dropdown.classList.remove('show');
+          input.focus();
+        });
+      });
+    }
+
+    function selectMatch() {
+      const matches = getMatches(input.value);
+      if (matches.length > 0 && selectedIndex < matches.length) {
+        input.value = matches[selectedIndex].cmd + ' ';
+        dropdown.classList.remove('show');
+        selectedIndex = 0;
+      }
     }
 
     function addLine(text, cls = '') {
@@ -578,54 +616,78 @@
           addLine(`Workspace '${name}' not found`, 'info');
         }
       }
-      // hyve help or unknown
+      // hyve --help or hyve help
+      else if (action === '--help' || action === 'help' || !action) {
+        addLine('Commands:', 'success');
+        allCommands.forEach(c => {
+          addLine(`  ${c.cmd} ${c.args}`, 'info');
+          addLine(`      ${c.desc}`, 'dim');
+        });
+      }
+      // unknown
       else {
-        addLine('Try: hyve work auth server webapp', 'info');
+        addLine(`Unknown command: hyve ${action}`, 'info');
+        addLine('Type "hyve --help" for available commands', 'dim');
       }
     }
 
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && input.value.trim()) {
-        execute(input.value);
-        input.value = '';
-        hint.textContent = '';
+      const matches = getMatches(input.value);
+
+      if (e.key === 'Enter') {
+        if (dropdown.classList.contains('show') && matches.length > 0) {
+          e.preventDefault();
+          selectMatch();
+        } else if (input.value.trim()) {
+          execute(input.value);
+          input.value = '';
+          dropdown.classList.remove('show');
+        }
       }
       else if (e.key === 'Tab') {
         e.preventDefault();
-        const completion = getAutocomplete(input.value);
-        if (completion) {
-          input.value = input.value + completion;
-          updateHint();
-        }
+        selectMatch();
       }
       else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (history.length > 0 && historyIndex > 0) {
+        if (dropdown.classList.contains('show')) {
+          selectedIndex = Math.max(0, selectedIndex - 1);
+          updateDropdown();
+        } else if (history.length > 0 && historyIndex > 0) {
           historyIndex--;
           input.value = history[historyIndex];
-          updateHint();
         }
       }
       else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (historyIndex < history.length - 1) {
+        if (dropdown.classList.contains('show')) {
+          selectedIndex = Math.min(matches.length - 1, selectedIndex + 1);
+          updateDropdown();
+        } else if (historyIndex < history.length - 1) {
           historyIndex++;
           input.value = history[historyIndex];
         } else {
           historyIndex = history.length;
           input.value = '';
         }
-        updateHint();
+      }
+      else if (e.key === 'Escape') {
+        dropdown.classList.remove('show');
       }
     });
 
-    input.addEventListener('input', updateHint);
+    input.addEventListener('input', () => {
+      selectedIndex = 0;
+      updateDropdown();
+    });
+
+    input.addEventListener('focus', updateDropdown);
 
     // Focus terminal on click
     document.querySelector('.terminal').addEventListener('click', () => input.focus());
 
-    // Initial hint
-    updateHint();
+    // Initial focus
+    input.focus();
   </script>
 </body>
 </html>
