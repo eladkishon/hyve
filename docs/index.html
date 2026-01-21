@@ -331,7 +331,7 @@
             <div class="terminal-dot green"></div>
           </div>
           <div class="terminal-body" id="terminal-body">
-            <div class="terminal-line dim">Try: hyve create, hyve run, hyve status</div>
+            <div class="terminal-line dim"># Type "hyve work auth" and press Enter</div>
           </div>
           <div style="padding: 0 12px 12px;">
             <div class="terminal-input-line">
@@ -374,13 +374,14 @@
     const workspaces = {};
     let wsIndex = 0;
     const basePorts = { server: 4000, webapp: 4001, db: 5500 };
+    const history = [];
+    let historyIndex = -1;
 
     const commands = [
       'hyve create auth server webapp',
       'hyve create billing server webapp',
-      'hyve create feature server',
+      'hyve work auth server webapp',
       'hyve run auth',
-      'hyve run billing',
       'hyve status',
       'hyve list',
       'hyve cleanup auth',
@@ -393,10 +394,10 @@
     const panel = document.getElementById('workspace-panel');
     const hint = document.getElementById('autocomplete-hint');
 
-    const subcommands = ['create', 'run', 'status', 'list', 'cleanup', 'halt', 'db'];
+    const subcommands = ['create', 'work', 'run', 'start', 'status', 'list', 'cleanup', 'halt', 'db'];
 
     function getAutocomplete(val) {
-      if (!val) return 'hyve create auth server webapp';
+      if (!val) return 'hyve work auth server webapp';
 
       const parts = val.split(' ').filter(p => p);
 
@@ -407,7 +408,7 @@
 
       // After "hyve", suggest subcommands
       if (parts.length === 1 && parts[0] === 'hyve') {
-        return ' create';
+        return ' work';
       }
 
       // Autocomplete subcommand
@@ -416,10 +417,10 @@
         if (sub) return sub.slice(parts[1].length);
 
         // After complete subcommand, suggest args
-        if (parts[1] === 'create') return ' myfeature server webapp';
-        if (parts[1] === 'run' || parts[1] === 'cleanup' || parts[1] === 'halt' || parts[1] === 'db') {
+        if (parts[1] === 'create' || parts[1] === 'work') return ' auth server webapp';
+        if (parts[1] === 'run' || parts[1] === 'start' || parts[1] === 'cleanup' || parts[1] === 'halt' || parts[1] === 'db') {
           const names = Object.keys(workspaces);
-          return names.length > 0 ? ' ' + names[0] : ' <name>';
+          return names.length > 0 ? ' ' + names[0] : ' auth';
         }
       }
 
@@ -464,8 +465,42 @@
       }).join('');
     }
 
+    function createWorkspace(name, repos) {
+      if (workspaces[name]) {
+        addLine(`Workspace '${name}' already exists`, 'info');
+        return false;
+      }
+      const offset = wsIndex * 1000;
+      const ports = {};
+      repos.forEach((r, i) => ports[r] = basePorts.server + offset + i);
+      workspaces[name] = { repos, ports, dbPort: basePorts.db + wsIndex, running: false };
+      wsIndex++;
+      addLine(`✓ Created workspace '${name}'`, 'success');
+      addLine(`  Branch: feature/${name}`, 'info');
+      addLine(`  Database: postgres :${workspaces[name].dbPort}`, 'info');
+      updatePanel();
+      return true;
+    }
+
+    function runWorkspace(name) {
+      if (!workspaces[name]) {
+        addLine(`Workspace '${name}' not found. Create it first.`, 'info');
+        return false;
+      }
+      workspaces[name].running = true;
+      addLine(`✓ Starting ${name}...`, 'success');
+      workspaces[name].repos.forEach(r => {
+        addLine(`  ${r} on :${workspaces[name].ports[r]}`, 'info');
+      });
+      addLine(`  postgres on :${workspaces[name].dbPort}`, 'info');
+      updatePanel();
+      return true;
+    }
+
     function execute(cmd) {
       addLine('$ ' + cmd, 'dim');
+      history.push(cmd);
+      historyIndex = history.length;
 
       const parts = cmd.trim().split(/\s+/);
       if (parts[0] !== 'hyve') {
@@ -476,46 +511,43 @@
       const action = parts[1];
       const args = parts.slice(2);
 
-      if (action === 'create' && args.length >= 2) {
+      // hyve create <name> [repos...] - default repos: server webapp
+      if (action === 'create' && args.length >= 1) {
         const name = args[0];
-        const repos = args.slice(1);
-        if (workspaces[name]) {
-          addLine(`Workspace '${name}' already exists`, 'info');
-          return;
-        }
-        const offset = wsIndex * 1000;
-        const ports = {};
-        repos.forEach((r, i) => ports[r] = basePorts.server + offset + i);
-        workspaces[name] = { repos, ports, dbPort: basePorts.db + wsIndex, running: false };
-        wsIndex++;
-        addLine(`✓ Created workspace '${name}'`, 'success');
-        addLine(`  Branch: feature/${name}`, 'info');
-        addLine(`  Database: postgres on :${workspaces[name].dbPort}`, 'info');
-        updatePanel();
+        const repos = args.length > 1 ? args.slice(1) : ['server', 'webapp'];
+        createWorkspace(name, repos);
       }
-      else if (action === 'run' && args[0]) {
+      // hyve work <name> [repos...] - create + run in one command
+      else if (action === 'work' && args.length >= 1) {
         const name = args[0];
-        if (!workspaces[name]) {
-          addLine(`Workspace '${name}' not found`, 'info');
-          return;
+        const repos = args.length > 1 ? args.slice(1) : ['server', 'webapp'];
+        if (createWorkspace(name, repos)) {
+          addLine('', '');
+          runWorkspace(name);
+          addLine('', '');
+          addLine(`Ready! Agent can now work on '${name}'`, 'success');
         }
-        workspaces[name].running = true;
-        addLine(`✓ Starting ${name}...`, 'success');
-        workspaces[name].repos.forEach(r => {
-          addLine(`  ${r} running on :${workspaces[name].ports[r]}`, 'info');
-        });
       }
+      // hyve run|start <name>
+      else if ((action === 'run' || action === 'start') && args[0]) {
+        runWorkspace(args[0]);
+      }
+      // hyve status|list
       else if (action === 'status' || action === 'list') {
         const names = Object.keys(workspaces);
         if (names.length === 0) {
-          addLine('No workspaces', 'info');
+          addLine('No workspaces yet', 'info');
         } else {
+          addLine('WORKSPACES:', 'info');
           names.forEach(name => {
             const ws = workspaces[name];
-            addLine(`${name}/ ${ws.running ? '● running' : '○ stopped'}`, ws.running ? 'success' : 'info');
+            const status = ws.running ? '● running' : '○ stopped';
+            addLine(`  ${name}/ ${status}`, ws.running ? 'success' : 'info');
+            ws.repos.forEach(r => addLine(`    ${r} :${ws.ports[r]}`, 'dim'));
           });
         }
       }
+      // hyve cleanup <name>
       else if (action === 'cleanup' && args[0]) {
         const name = args[0];
         if (!workspaces[name]) {
@@ -526,21 +558,30 @@
         addLine(`✓ Removed workspace '${name}'`, 'success');
         updatePanel();
       }
-      else if (action === 'halt' && args[0]) {
+      // hyve halt|stop <name>
+      else if ((action === 'halt' || action === 'stop') && args[0]) {
         const name = args[0];
         if (workspaces[name]) {
           workspaces[name].running = false;
           addLine(`✓ Stopped '${name}'`, 'success');
+          updatePanel();
+        } else {
+          addLine(`Workspace '${name}' not found`, 'info');
         }
       }
+      // hyve db <name>
       else if (action === 'db' && args[0]) {
         const name = args[0];
         if (workspaces[name]) {
-          addLine(`Connecting to postgres on :${workspaces[name].dbPort}...`, 'info');
+          addLine(`psql -h localhost -p ${workspaces[name].dbPort} -U postgres`, 'info');
+          addLine(`Connected to ${name} database`, 'success');
+        } else {
+          addLine(`Workspace '${name}' not found`, 'info');
         }
       }
+      // hyve help or unknown
       else {
-        addLine('Usage: hyve <create|run|status|cleanup> [args]', 'info');
+        addLine('Try: hyve work auth server webapp', 'info');
       }
     }
 
@@ -550,13 +591,32 @@
         input.value = '';
         hint.textContent = '';
       }
-      if (e.key === 'Tab' || e.key === 'ArrowRight') {
+      else if (e.key === 'Tab') {
+        e.preventDefault();
         const completion = getAutocomplete(input.value);
         if (completion) {
-          e.preventDefault();
           input.value = input.value + completion;
           updateHint();
         }
+      }
+      else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (history.length > 0 && historyIndex > 0) {
+          historyIndex--;
+          input.value = history[historyIndex];
+          updateHint();
+        }
+      }
+      else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex < history.length - 1) {
+          historyIndex++;
+          input.value = history[historyIndex];
+        } else {
+          historyIndex = history.length;
+          input.value = '';
+        }
+        updateHint();
       }
     });
 
