@@ -31,8 +31,8 @@
 </p>
 
 <p align="center">
-  <a href="https://buymeacoffee.com/eladkishon">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
+  <a href="https://ko-fi.com/eladkishon">
+    <img src="https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi">
   </a>
 </p>
 
@@ -374,10 +374,10 @@ Contributions welcome! This started as an internal tool at Medflyt and we're exc
 
 ## Support
 
-If Hyve saves you time, consider buying me a coffee:
+If Hyve saves you time, consider supporting the project:
 
-<a href="https://buymeacoffee.com/eladkishon">
-  <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
+<a href="https://ko-fi.com/eladkishon">
+  <img src="https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi">
 </a>
 
 ## License

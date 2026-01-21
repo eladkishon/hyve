@@ -83,56 +83,140 @@
       margin-bottom: 24px;
     }
 
-    .viz {
+    .demo {
       display: flex;
       gap: 16px;
       margin-bottom: 24px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
+      width: 100%;
+      max-width: 700px;
     }
 
-    .workspace {
-      background: #0d0d0d;
+    .terminal {
+      background: #0a0a0a;
       border: 1px solid #1a1a1a;
       border-radius: 10px;
-      padding: 12px 16px;
-      flex: 1;
+      flex: 1.2;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
       text-align: left;
-      position: relative;
+      overflow: hidden;
     }
 
-    .workspace::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, #dc2626, transparent);
+    .terminal-header {
+      background: #111;
+      padding: 8px 12px;
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid #1a1a1a;
     }
 
-    .workspace-name {
-      color: #dc2626;
-      font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 0.75rem;
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
     }
 
-    .workspace-item {
-      color: #555;
+    .terminal-dot.red { background: #dc2626; }
+    .terminal-dot.yellow { background: #ca8a04; }
+    .terminal-dot.green { background: #16a34a; }
+
+    .terminal-body {
+      padding: 12px;
+      height: 140px;
+      overflow-y: auto;
+    }
+
+    .terminal-line {
       margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .terminal-line.dim { color: #444; }
+    .terminal-line.success { color: #16a34a; }
+    .terminal-line.info { color: #666; }
+
+    .terminal-input-line {
       display: flex;
       align-items: center;
-      gap: 6px;
     }
 
-    .workspace-item .icon {
-      color: #333;
-    }
-
-    .workspace-item .port {
+    .terminal-prompt {
       color: #dc2626;
-      margin-left: auto;
+      margin-right: 8px;
+    }
+
+    .terminal-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: inherit;
+      font-size: inherit;
+      outline: none;
+      caret-color: #dc2626;
+    }
+
+    .autocomplete {
+      color: #333;
+      pointer-events: none;
+    }
+
+    .workspace-panel {
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      border-radius: 10px;
+      flex: 0.8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      text-align: left;
+      overflow: hidden;
+    }
+
+    .workspace-panel-header {
+      background: #111;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a1a1a;
+      color: #555;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .workspace-panel-body {
+      padding: 10px 12px;
+      height: 140px;
+      overflow-y: auto;
+    }
+
+    .ws-item {
+      margin-bottom: 10px;
+    }
+
+    .ws-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .ws-name {
+      color: #dc2626;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .ws-service {
+      color: #444;
+      margin-left: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .ws-service .port {
+      color: #16a34a;
+    }
+
+    .ws-empty {
+      color: #333;
+      font-style: italic;
     }
 
     .cta {
@@ -226,25 +310,35 @@
         Isolated branches. Isolated databases. Zero conflicts.
       </p>
 
-      <div class="viz">
-        <div class="workspace">
-          <div class="workspace-name">auth-feature/</div>
-          <div class="workspace-item"><span class="icon">├</span> server <span class="port">:4000</span></div>
-          <div class="workspace-item"><span class="icon">├</span> webapp <span class="port">:4001</span></div>
-          <div class="workspace-item"><span class="icon">└</span> postgres <span class="port">:5500</span></div>
+      <div class="demo">
+        <div class="terminal">
+          <div class="terminal-header">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <div class="terminal-body" id="terminal-body">
+            <div class="terminal-line dim">Try: hyve create, hyve run, hyve status</div>
+          </div>
+          <div style="padding: 0 12px 12px;">
+            <div class="terminal-input-line">
+              <span class="terminal-prompt">$</span>
+              <input type="text" class="terminal-input" id="terminal-input" placeholder="hyve " autocomplete="off" spellcheck="false">
+            </div>
+          </div>
         </div>
-        <div class="workspace">
-          <div class="workspace-name">billing/</div>
-          <div class="workspace-item"><span class="icon">├</span> server <span class="port">:5000</span></div>
-          <div class="workspace-item"><span class="icon">├</span> webapp <span class="port">:5001</span></div>
-          <div class="workspace-item"><span class="icon">└</span> postgres <span class="port">:5501</span></div>
+        <div class="workspace-panel">
+          <div class="workspace-panel-header">Workspaces</div>
+          <div class="workspace-panel-body" id="workspace-panel">
+            <div class="ws-empty">No workspaces yet</div>
+          </div>
         </div>
       </div>
 
       <div class="cta">
         <a href="https://github.com/eladkishon/hyve" class="btn btn-red">View on GitHub</a>
         <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
-        <a href="https://buymeacoffee.com/eladkishon" class="btn btn-ghost">☕ Support</a>
+        <a href="https://ko-fi.com/eladkishon" class="btn btn-ghost">☕ Support</a>
       </div>
 
       <div class="pills">
@@ -259,5 +353,147 @@
       by <a href="https://github.com/eladkishon">@eladkishon</a>
     </div>
   </div>
+
+  <script>
+    const workspaces = {};
+    let wsIndex = 0;
+    const basePorts = { server: 4000, webapp: 4001, db: 5500 };
+
+    const commands = [
+      'hyve create auth server webapp',
+      'hyve create billing server webapp',
+      'hyve create feature server',
+      'hyve run auth',
+      'hyve run billing',
+      'hyve status',
+      'hyve list',
+      'hyve cleanup auth',
+      'hyve db auth',
+      'hyve halt auth'
+    ];
+
+    const input = document.getElementById('terminal-input');
+    const body = document.getElementById('terminal-body');
+    const panel = document.getElementById('workspace-panel');
+
+    function addLine(text, cls = '') {
+      const line = document.createElement('div');
+      line.className = 'terminal-line ' + cls;
+      line.textContent = text;
+      body.appendChild(line);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function updatePanel() {
+      const names = Object.keys(workspaces);
+      if (names.length === 0) {
+        panel.innerHTML = '<div class="ws-empty">No workspaces yet</div>';
+        return;
+      }
+      panel.innerHTML = names.map(name => {
+        const ws = workspaces[name];
+        const services = ws.repos.map(r =>
+          `<div class="ws-service">${r} <span class="port">:${ws.ports[r]}</span></div>`
+        ).join('');
+        return `<div class="ws-item"><div class="ws-name">${name}/</div>${services}<div class="ws-service">postgres <span class="port">:${ws.dbPort}</span></div></div>`;
+      }).join('');
+    }
+
+    function execute(cmd) {
+      addLine('$ ' + cmd, 'dim');
+
+      const parts = cmd.trim().split(/\s+/);
+      if (parts[0] !== 'hyve') {
+        addLine('command not found: ' + parts[0], 'info');
+        return;
+      }
+
+      const action = parts[1];
+      const args = parts.slice(2);
+
+      if (action === 'create' && args.length >= 2) {
+        const name = args[0];
+        const repos = args.slice(1);
+        if (workspaces[name]) {
+          addLine(`Workspace '${name}' already exists`, 'info');
+          return;
+        }
+        const offset = wsIndex * 1000;
+        const ports = {};
+        repos.forEach((r, i) => ports[r] = basePorts.server + offset + i);
+        workspaces[name] = { repos, ports, dbPort: basePorts.db + wsIndex, running: false };
+        wsIndex++;
+        addLine(`✓ Created workspace '${name}'`, 'success');
+        addLine(`  Branch: feature/${name}`, 'info');
+        addLine(`  Database: postgres on :${workspaces[name].dbPort}`, 'info');
+        updatePanel();
+      }
+      else if (action === 'run' && args[0]) {
+        const name = args[0];
+        if (!workspaces[name]) {
+          addLine(`Workspace '${name}' not found`, 'info');
+          return;
+        }
+        workspaces[name].running = true;
+        addLine(`✓ Starting ${name}...`, 'success');
+        workspaces[name].repos.forEach(r => {
+          addLine(`  ${r} running on :${workspaces[name].ports[r]}`, 'info');
+        });
+      }
+      else if (action === 'status' || action === 'list') {
+        const names = Object.keys(workspaces);
+        if (names.length === 0) {
+          addLine('No workspaces', 'info');
+        } else {
+          names.forEach(name => {
+            const ws = workspaces[name];
+            addLine(`${name}/ ${ws.running ? '● running' : '○ stopped'}`, ws.running ? 'success' : 'info');
+          });
+        }
+      }
+      else if (action === 'cleanup' && args[0]) {
+        const name = args[0];
+        if (!workspaces[name]) {
+          addLine(`Workspace '${name}' not found`, 'info');
+          return;
+        }
+        delete workspaces[name];
+        addLine(`✓ Removed workspace '${name}'`, 'success');
+        updatePanel();
+      }
+      else if (action === 'halt' && args[0]) {
+        const name = args[0];
+        if (workspaces[name]) {
+          workspaces[name].running = false;
+          addLine(`✓ Stopped '${name}'`, 'success');
+        }
+      }
+      else if (action === 'db' && args[0]) {
+        const name = args[0];
+        if (workspaces[name]) {
+          addLine(`Connecting to postgres on :${workspaces[name].dbPort}...`, 'info');
+        }
+      }
+      else {
+        addLine('Usage: hyve <create|run|status|cleanup> [args]', 'info');
+      }
+    }
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        execute(input.value);
+        input.value = '';
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const val = input.value;
+        const match = commands.find(c => c.startsWith(val) && c !== val);
+        if (match) input.value = match;
+      }
+    });
+
+    // Focus terminal on click
+    document.querySelector('.terminal').addEventListener('click', () => input.focus());
+  </script>
 </body>
 </html>
