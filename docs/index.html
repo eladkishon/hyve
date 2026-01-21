@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hyve - Workspaces for AI Agents</title>
   <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -19,94 +19,277 @@
     }
 
     .page {
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
+      padding: 20px;
       position: relative;
-      overflow: hidden;
     }
 
-    /* Animated grid background */
     .grid-bg {
-      position: absolute;
+      position: fixed;
       inset: 0;
       background-image:
         linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
       background-size: 60px 60px;
       mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
-    }
-
-    /* Glowing orb */
-    .glow {
-      position: absolute;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(220, 38, 38, 0.15) 0%, transparent 60%);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
       pointer-events: none;
     }
 
-    .content {
+    .header {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 20px;
       position: relative;
-      z-index: 1;
-      text-align: center;
-      max-width: 640px;
+      z-index: 10;
     }
 
-    .logo {
-      width: 140px;
-      margin-bottom: 16px;
+    .btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 0.75rem;
+      transition: all 0.2s;
+      font-family: 'Space Grotesk', sans-serif;
     }
+
+    .btn-red { background: #dc2626; color: #fff; }
+    .btn-red:hover { background: #ef4444; }
+    .btn-ghost { background: transparent; color: #666; border: 1px solid #333; }
+    .btn-ghost:hover { color: #fff; border-color: #555; }
+    .btn-star:hover { color: #fbbf24; border-color: #fbbf24; }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo { width: 100px; margin-bottom: 12px; }
 
     .tagline {
-      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-size: 2rem;
       font-weight: 700;
       line-height: 1.1;
-      margin-bottom: 16px;
-      letter-spacing: -0.03em;
+      margin-bottom: 10px;
     }
 
-    .tagline span {
-      color: #dc2626;
-    }
+    .tagline span { color: #dc2626; }
 
     .desc {
       color: #666;
-      font-size: 0.95rem;
-      line-height: 1.5;
-      margin-bottom: 20px;
+      font-size: 0.9rem;
+      max-width: 500px;
+      margin: 0 auto;
     }
 
-    .demo {
+    /* Main visualization */
+    .viz-container {
+      width: 100%;
+      max-width: 900px;
+      position: relative;
+    }
+
+    .main-branch {
+      background: linear-gradient(90deg, #333 0%, #dc2626 50%, #333 100%);
+      height: 3px;
+      width: 100%;
+      margin: 30px 0;
+      position: relative;
+    }
+
+    .main-label {
+      position: absolute;
+      left: 50%;
+      top: -20px;
+      transform: translateX(-50%);
+      background: #dc2626;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .workspaces {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .workspace {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 12px;
+      width: 280px;
+      overflow: hidden;
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .workspace.active {
+      border-color: #dc2626;
+      box-shadow: 0 0 30px rgba(220, 38, 38, 0.2);
+    }
+
+    .workspace-header {
+      background: #111;
+      padding: 10px 14px;
+      border-bottom: 1px solid #222;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .workspace-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workspace-name .icon {
+      font-size: 1rem;
+    }
+
+    .agent-badge {
+      background: #dc2626;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .agent-badge.cursor { background: #0ea5e9; }
+    .agent-badge.aider { background: #8b5cf6; }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      background: #fff;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .workspace-body {
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+    }
+
+    .ws-section {
+      margin-bottom: 10px;
+    }
+
+    .ws-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .ws-section-title {
+      color: #555;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .ws-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      color: #888;
+    }
+
+    .ws-row .label { color: #666; }
+    .ws-row .value { color: #22c55e; }
+    .ws-row .value.branch { color: #f59e0b; }
+
+    .ws-activity {
+      background: #111;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+    }
+
+    .activity-line {
+      color: #555;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-line.current {
+      color: #22c55e;
+    }
+
+    /* Features */
+    .features {
       display: flex;
       gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 30px;
+    }
+
+    .feature {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      text-align: center;
+      width: 140px;
+    }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+
+    .feature-title {
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin-bottom: 2px;
+    }
+
+    .feature-desc {
+      color: #666;
+      font-size: 0.65rem;
+    }
+
+    /* Terminal */
+    .terminal-section {
       width: 100%;
-      max-width: 680px;
+      max-width: 500px;
+      margin-top: 30px;
     }
 
     .terminal {
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      flex: 1.2;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      text-align: left;
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 8px;
       overflow: hidden;
     }
 
     .terminal-header {
-      background: #1a1a1a;
+      background: #111;
       padding: 8px 12px;
       display: flex;
       gap: 6px;
-      border-bottom: 1px solid #333;
+      border-bottom: 1px solid #222;
     }
 
     .terminal-dot {
@@ -120,225 +303,66 @@
     .terminal-dot.green { background: #16a34a; }
 
     .terminal-body {
-      padding: 10px;
-      height: 120px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      height: 80px;
       overflow-y: auto;
     }
 
     .terminal-line {
-      margin-bottom: 4px;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #999;
+      margin-bottom: 3px;
+      color: #888;
     }
 
-    .terminal-line.dim { color: #666; }
+    .terminal-line.dim { color: #555; }
     .terminal-line.success { color: #22c55e; }
-    .terminal-line.info { color: #888; }
 
-    .terminal-input-line {
+    .terminal-input-area {
+      padding: 8px 12px;
+      border-top: 1px solid #222;
       display: flex;
       align-items: center;
+      gap: 8px;
     }
 
-    .terminal-prompt {
-      color: #dc2626;
-      margin-right: 8px;
-    }
+    .terminal-prompt { color: #dc2626; }
 
     .terminal-input {
       flex: 1;
       background: transparent;
       border: none;
       color: #fff;
-      font-family: inherit;
-      font-size: inherit;
-      outline: none;
-      caret-color: #dc2626;
-    }
-
-    .autocomplete {
-      color: #333;
-      pointer-events: none;
-    }
-
-    .workspace-panel {
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      flex: 0.8;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.65rem;
-      text-align: left;
-      overflow: hidden;
+      font-size: 0.7rem;
+      outline: none;
     }
 
-    .workspace-panel-header {
-      background: #1a1a1a;
-      padding: 8px 12px;
-      border-bottom: 1px solid #333;
-      color: #888;
-      font-size: 0.6rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .cta {
+      margin-top: 24px;
+      text-align: center;
     }
 
-    .workspace-panel-body {
-      padding: 8px 10px;
-      height: 120px;
-      overflow-y: auto;
-    }
-
-    .ws-item {
-      margin-bottom: 10px;
-    }
-
-    .ws-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .ws-name {
-      color: #dc2626;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .ws-service {
-      color: #777;
-      margin-left: 8px;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .ws-service .port {
-      color: #22c55e;
-    }
-
-    .ws-empty {
+    .cta-text {
       color: #555;
-      font-style: italic;
+      font-size: 0.75rem;
+      margin-bottom: 8px;
     }
 
-    .terminal-input-wrapper {
-      position: relative;
-      flex: 1;
-    }
-
-    .autocomplete-dropdown {
-      position: absolute;
-      bottom: 100%;
-      left: 0;
+    .cta code {
       background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 4px;
-      margin-bottom: 2px;
-      max-height: 90px;
-      overflow-y: auto;
-      display: none;
-      min-width: 180px;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.5);
-    }
-
-    .autocomplete-dropdown.show {
-      display: block;
-    }
-
-    .autocomplete-item {
-      padding: 3px 8px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.65rem;
-    }
-
-    .autocomplete-item:hover,
-    .autocomplete-item.selected {
-      background: #dc2626;
-    }
-
-    .autocomplete-item .cmd {
-      color: #fff;
-    }
-
-    .autocomplete-item .desc {
-      color: #888;
-      font-size: 0.6rem;
-      margin-left: 12px;
-    }
-
-    .autocomplete-item.selected .desc {
-      color: #fca5a5;
-    }
-
-    .header {
-      position: absolute;
-      top: 16px;
-      right: 24px;
-      display: flex;
-      gap: 12px;
-      z-index: 10;
-    }
-
-    .btn {
       padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 600;
-      text-decoration: none;
-      font-size: 0.8rem;
-      transition: all 0.2s;
-      font-family: 'Space Grotesk', sans-serif;
-    }
-
-    .btn-red {
-      background: #dc2626;
-      color: #fff;
-    }
-
-    .btn-red:hover {
-      background: #ef4444;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: #666;
-      border: 1px solid #333;
-    }
-
-    .btn-ghost:hover {
-      color: #fff;
-      border-color: #555;
-    }
-
-    .btn-star:hover {
-      color: #fbbf24;
-      border-color: #fbbf24;
-    }
-
-    .pills {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-
-    .pill {
-      padding: 8px 16px;
-      background: rgba(220, 38, 38, 0.15);
-      border: 1px solid rgba(220, 38, 38, 0.4);
-      border-radius: 100px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.8rem;
       color: #fff;
-      font-weight: 500;
+      display: inline-block;
     }
-
   </style>
 </head>
 <body>
   <div class="page">
     <div class="grid-bg"></div>
-    <div class="glow"></div>
 
     <div class="header">
       <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
@@ -347,124 +371,165 @@
       <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
     </div>
 
-    <div class="content">
+    <div class="hero">
       <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
+      <h1 class="tagline">Workspaces for <span>AI Agents</span></h1>
+      <p class="desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. Zero conflicts.</p>
+    </div>
 
-      <h1 class="tagline">
-        Workspaces for<br><span>AI Agents</span>
-      </h1>
+    <!-- Main visualization -->
+    <div class="viz-container">
+      <div class="main-branch">
+        <span class="main-label">main</span>
+      </div>
 
-      <p class="desc">
-        Run Claude Code, Cursor, or Aider in parallel.<br>
-        Isolated branches. Isolated databases. Zero conflicts.
-      </p>
-
-      <div class="demo">
-        <div class="terminal">
-          <div class="terminal-header">
-            <div class="terminal-dot red"></div>
-            <div class="terminal-dot yellow"></div>
-            <div class="terminal-dot green"></div>
+      <div class="workspaces">
+        <div class="workspace active" id="ws1">
+          <div class="workspace-header">
+            <div class="workspace-name">
+              <span class="icon">📁</span> auth-feature
+            </div>
+            <div class="agent-badge">
+              <div class="pulse"></div>
+              Claude
+            </div>
           </div>
-          <div class="terminal-body" id="terminal-body">
-            <div class="terminal-line dim"># Type "hyve work auth" and press Enter</div>
-          </div>
-          <div style="padding: 0 12px 12px; position: relative;">
-            <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
-            <div class="terminal-input-line">
-              <span class="terminal-prompt">$</span>
-              <div class="terminal-input-wrapper">
-                <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false">
+          <div class="workspace-body">
+            <div class="ws-section">
+              <div class="ws-section-title">Git Branch</div>
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/auth-feature</span>
               </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-section-title">Services</div>
+              <div class="ws-row"><span class="label">server</span><span class="value">:4000</span></div>
+              <div class="ws-row"><span class="label">webapp</span><span class="value">:4001</span></div>
+              <div class="ws-row"><span class="label">postgres</span><span class="value">:5500</span></div>
+            </div>
+            <div class="ws-activity">
+              <div class="activity-line dim">Adding JWT middleware...</div>
+              <div class="activity-line current">✓ Created auth.controller.ts</div>
             </div>
           </div>
         </div>
-        <div class="workspace-panel">
-          <div class="workspace-panel-header">Workspaces</div>
-          <div class="workspace-panel-body" id="workspace-panel">
-            <div class="ws-empty">No workspaces yet</div>
+
+        <div class="workspace active" id="ws2">
+          <div class="workspace-header">
+            <div class="workspace-name">
+              <span class="icon">📁</span> billing-api
+            </div>
+            <div class="agent-badge cursor">
+              <div class="pulse"></div>
+              Cursor
+            </div>
+          </div>
+          <div class="workspace-body">
+            <div class="ws-section">
+              <div class="ws-section-title">Git Branch</div>
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/billing-api</span>
+              </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-section-title">Services</div>
+              <div class="ws-row"><span class="label">server</span><span class="value">:5000</span></div>
+              <div class="ws-row"><span class="label">webapp</span><span class="value">:5001</span></div>
+              <div class="ws-row"><span class="label">postgres</span><span class="value">:5501</span></div>
+            </div>
+            <div class="ws-activity">
+              <div class="activity-line dim">Running migrations...</div>
+              <div class="activity-line current">✓ Added invoices table</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="workspace active" id="ws3">
+          <div class="workspace-header">
+            <div class="workspace-name">
+              <span class="icon">📁</span> ui-refactor
+            </div>
+            <div class="agent-badge aider">
+              <div class="pulse"></div>
+              Aider
+            </div>
+          </div>
+          <div class="workspace-body">
+            <div class="ws-section">
+              <div class="ws-section-title">Git Branch</div>
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/ui-refactor</span>
+              </div>
+            </div>
+            <div class="ws-section">
+              <div class="ws-section-title">Services</div>
+              <div class="ws-row"><span class="label">server</span><span class="value">:6000</span></div>
+              <div class="ws-row"><span class="label">webapp</span><span class="value">:6001</span></div>
+              <div class="ws-row"><span class="label">postgres</span><span class="value">:5502</span></div>
+            </div>
+            <div class="ws-activity">
+              <div class="activity-line dim">Updating components...</div>
+              <div class="activity-line current">✓ Refactored Dashboard.tsx</div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="pills">
-        <span class="pill">Git Worktrees</span>
-        <span class="pill">Database Cloning</span>
-        <span class="pill">Port Management</span>
-        <span class="pill">Claude Code Ready</span>
+    <!-- Features -->
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🌿</div>
+        <div class="feature-title">Git Worktrees</div>
+        <div class="feature-desc">Each workspace gets its own branch</div>
       </div>
+      <div class="feature">
+        <div class="feature-icon">🗄️</div>
+        <div class="feature-title">Database Clone</div>
+        <div class="feature-desc">Instant PostgreSQL snapshots</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔌</div>
+        <div class="feature-title">Port Isolation</div>
+        <div class="feature-desc">No conflicts between services</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">Agent Ready</div>
+        <div class="feature-desc">Claude, Cursor, Aider compatible</div>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div class="terminal-section">
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="terminal-dot red"></div>
+          <div class="terminal-dot yellow"></div>
+          <div class="terminal-dot green"></div>
+        </div>
+        <div class="terminal-body" id="terminal-body">
+          <div class="terminal-line dim"># Create a workspace and start coding</div>
+        </div>
+        <div class="terminal-input-area">
+          <span class="terminal-prompt">$</span>
+          <input type="text" class="terminal-input" id="terminal-input" placeholder="hyve work my-feature server webapp" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="cta">
+      <div class="cta-text">Get started in seconds</div>
+      <code>npx hyve-cli create my-feature server webapp</code>
     </div>
   </div>
 
   <script>
-    const workspaces = {};
-    let wsIndex = 0;
-    const basePorts = { server: 4000, webapp: 4001, db: 5500 };
-    const history = [];
-    let historyIndex = -1;
-    let selectedIndex = 0;
-
-    // All commands with descriptions
-    const allCommands = [
-      { cmd: 'hyve work', desc: 'Create + run workspace', args: '<name> [repos]' },
-      { cmd: 'hyve create', desc: 'Create workspace', args: '<name> [repos]' },
-      { cmd: 'hyve run', desc: 'Start services', args: '<name>' },
-      { cmd: 'hyve status', desc: 'List all workspaces', args: '' },
-      { cmd: 'hyve cleanup', desc: 'Remove workspace', args: '<name>' },
-      { cmd: 'hyve halt', desc: 'Stop services', args: '<name>' },
-      { cmd: 'hyve db', desc: 'Connect to database', args: '<name>' },
-      { cmd: 'hyve --help', desc: 'Show all commands', args: '' },
-    ];
-
     const input = document.getElementById('terminal-input');
     const body = document.getElementById('terminal-body');
-    const panel = document.getElementById('workspace-panel');
-    const dropdown = document.getElementById('autocomplete-dropdown');
-
-    function getMatches(val) {
-      if (!val) return allCommands;
-      const lower = val.toLowerCase();
-      return allCommands.filter(c => c.cmd.toLowerCase().startsWith(lower));
-    }
-
-    function updateDropdown() {
-      const val = input.value;
-      const matches = getMatches(val);
-
-      if (matches.length === 0 || (matches.length === 1 && matches[0].cmd === val)) {
-        dropdown.classList.remove('show');
-        return;
-      }
-
-      selectedIndex = Math.min(selectedIndex, matches.length - 1);
-
-      dropdown.innerHTML = matches.map((m, i) => `
-        <div class="autocomplete-item ${i === selectedIndex ? 'selected' : ''}" data-cmd="${m.cmd}">
-          <span class="cmd">${m.cmd} ${m.args}</span>
-          <span class="desc">${m.desc}</span>
-        </div>
-      `).join('');
-
-      dropdown.classList.add('show');
-
-      // Click handler
-      dropdown.querySelectorAll('.autocomplete-item').forEach(el => {
-        el.addEventListener('click', () => {
-          input.value = el.dataset.cmd + ' ';
-          dropdown.classList.remove('show');
-          input.focus();
-        });
-      });
-    }
-
-    function selectMatch() {
-      const matches = getMatches(input.value);
-      if (matches.length > 0 && selectedIndex < matches.length) {
-        input.value = matches[selectedIndex].cmd + ' ';
-        dropdown.classList.remove('show');
-        selectedIndex = 0;
-      }
-    }
 
     function addLine(text, cls = '') {
       const line = document.createElement('div');
@@ -474,207 +539,49 @@
       body.scrollTop = body.scrollHeight;
     }
 
-    function updatePanel() {
-      const names = Object.keys(workspaces);
-      if (names.length === 0) {
-        panel.innerHTML = '<div class="ws-empty">No workspaces yet</div>';
-        return;
-      }
-      panel.innerHTML = names.map(name => {
-        const ws = workspaces[name];
-        const services = ws.repos.map(r =>
-          `<div class="ws-service">${r} <span class="port">:${ws.ports[r]}</span></div>`
-        ).join('');
-        return `<div class="ws-item"><div class="ws-name">${name}/</div>${services}<div class="ws-service">postgres <span class="port">:${ws.dbPort}</span></div></div>`;
-      }).join('');
-    }
-
-    function createWorkspace(name, repos) {
-      if (workspaces[name]) {
-        addLine(`Workspace '${name}' already exists`, 'info');
-        return false;
-      }
-      const offset = wsIndex * 1000;
-      const ports = {};
-      repos.forEach((r, i) => ports[r] = basePorts.server + offset + i);
-      workspaces[name] = { repos, ports, dbPort: basePorts.db + wsIndex, running: false };
-      wsIndex++;
-      addLine(`✓ Created workspace '${name}'`, 'success');
-      addLine(`  Branch: feature/${name}`, 'info');
-      addLine(`  Database: postgres :${workspaces[name].dbPort}`, 'info');
-      updatePanel();
-      return true;
-    }
-
-    function runWorkspace(name) {
-      if (!workspaces[name]) {
-        addLine(`Workspace '${name}' not found. Create it first.`, 'info');
-        return false;
-      }
-      workspaces[name].running = true;
-      addLine(`✓ Starting ${name}...`, 'success');
-      workspaces[name].repos.forEach(r => {
-        addLine(`  ${r} on :${workspaces[name].ports[r]}`, 'info');
-      });
-      addLine(`  postgres on :${workspaces[name].dbPort}`, 'info');
-      updatePanel();
-      return true;
-    }
-
-    function execute(cmd) {
-      addLine('$ ' + cmd, 'dim');
-      history.push(cmd);
-      historyIndex = history.length;
-
-      const parts = cmd.trim().split(/\s+/);
-      if (parts[0] !== 'hyve') {
-        addLine('command not found: ' + parts[0], 'info');
-        return;
-      }
-
-      const action = parts[1];
-      const args = parts.slice(2);
-
-      // hyve create <name> [repos...] - default repos: server webapp
-      if (action === 'create' && args.length >= 1) {
-        const name = args[0];
-        const repos = args.length > 1 ? args.slice(1) : ['server', 'webapp'];
-        createWorkspace(name, repos);
-      }
-      // hyve work <name> [repos...] - create + run in one command
-      else if (action === 'work' && args.length >= 1) {
-        const name = args[0];
-        const repos = args.length > 1 ? args.slice(1) : ['server', 'webapp'];
-        if (createWorkspace(name, repos)) {
-          addLine('', '');
-          runWorkspace(name);
-          addLine('', '');
-          addLine(`Ready! Agent can now work on '${name}'`, 'success');
-        }
-      }
-      // hyve run|start <name>
-      else if ((action === 'run' || action === 'start') && args[0]) {
-        runWorkspace(args[0]);
-      }
-      // hyve status|list
-      else if (action === 'status' || action === 'list') {
-        const names = Object.keys(workspaces);
-        if (names.length === 0) {
-          addLine('No workspaces yet', 'info');
-        } else {
-          addLine('WORKSPACES:', 'info');
-          names.forEach(name => {
-            const ws = workspaces[name];
-            const status = ws.running ? '● running' : '○ stopped';
-            addLine(`  ${name}/ ${status}`, ws.running ? 'success' : 'info');
-            ws.repos.forEach(r => addLine(`    ${r} :${ws.ports[r]}`, 'dim'));
-          });
-        }
-      }
-      // hyve cleanup <name>
-      else if (action === 'cleanup' && args[0]) {
-        const name = args[0];
-        if (!workspaces[name]) {
-          addLine(`Workspace '${name}' not found`, 'info');
-          return;
-        }
-        delete workspaces[name];
-        addLine(`✓ Removed workspace '${name}'`, 'success');
-        updatePanel();
-      }
-      // hyve halt|stop <name>
-      else if ((action === 'halt' || action === 'stop') && args[0]) {
-        const name = args[0];
-        if (workspaces[name]) {
-          workspaces[name].running = false;
-          addLine(`✓ Stopped '${name}'`, 'success');
-          updatePanel();
-        } else {
-          addLine(`Workspace '${name}' not found`, 'info');
-        }
-      }
-      // hyve db <name>
-      else if (action === 'db' && args[0]) {
-        const name = args[0];
-        if (workspaces[name]) {
-          addLine(`psql -h localhost -p ${workspaces[name].dbPort} -U postgres`, 'info');
-          addLine(`Connected to ${name} database`, 'success');
-        } else {
-          addLine(`Workspace '${name}' not found`, 'info');
-        }
-      }
-      // hyve --help or hyve help
-      else if (action === '--help' || action === 'help' || !action) {
-        addLine('Commands:', 'success');
-        allCommands.forEach(c => {
-          addLine(`  ${c.cmd} ${c.args}`, 'info');
-          addLine(`      ${c.desc}`, 'dim');
-        });
-      }
-      // unknown
-      else {
-        addLine(`Unknown command: hyve ${action}`, 'info');
-        addLine('Type "hyve --help" for available commands', 'dim');
-      }
-    }
-
     input.addEventListener('keydown', (e) => {
-      const matches = getMatches(input.value);
+      if (e.key === 'Enter' && input.value.trim()) {
+        const cmd = input.value.trim();
+        addLine('$ ' + cmd, 'dim');
 
-      if (e.key === 'Enter') {
-        if (dropdown.classList.contains('show') && matches.length > 0) {
-          e.preventDefault();
-          selectMatch();
-        } else if (input.value.trim()) {
-          execute(input.value);
-          input.value = '';
-          dropdown.classList.remove('show');
-        }
-      }
-      else if (e.key === 'Tab') {
-        e.preventDefault();
-        selectMatch();
-      }
-      else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (dropdown.classList.contains('show')) {
-          selectedIndex = Math.max(0, selectedIndex - 1);
-          updateDropdown();
-        } else if (history.length > 0 && historyIndex > 0) {
-          historyIndex--;
-          input.value = history[historyIndex];
-        }
-      }
-      else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (dropdown.classList.contains('show')) {
-          selectedIndex = Math.min(matches.length - 1, selectedIndex + 1);
-          updateDropdown();
-        } else if (historyIndex < history.length - 1) {
-          historyIndex++;
-          input.value = history[historyIndex];
+        if (cmd.startsWith('hyve work') || cmd.startsWith('hyve create')) {
+          const name = cmd.split(' ')[2] || 'my-feature';
+          setTimeout(() => addLine(`✓ Created workspace '${name}'`, 'success'), 200);
+          setTimeout(() => addLine(`  Branch: feature/${name}`, ''), 400);
+          setTimeout(() => addLine(`  Database cloned to :5503`, ''), 600);
+          setTimeout(() => addLine(`✓ Services running`, 'success'), 800);
+          setTimeout(() => addLine(`  Ready for your AI agent!`, 'success'), 1000);
+        } else if (cmd === 'hyve status') {
+          setTimeout(() => {
+            addLine('auth-feature/  ● Claude working', 'success');
+            addLine('billing-api/   ● Cursor working', 'success');
+            addLine('ui-refactor/   ● Aider working', 'success');
+          }, 200);
         } else {
-          historyIndex = history.length;
-          input.value = '';
+          setTimeout(() => addLine('Try: hyve work <name> server webapp', ''), 200);
         }
-      }
-      else if (e.key === 'Escape') {
-        dropdown.classList.remove('show');
+
+        input.value = '';
       }
     });
 
-    input.addEventListener('input', () => {
-      selectedIndex = 0;
-      updateDropdown();
-    });
+    // Animate activities
+    const activities = [
+      ['Adding JWT middleware...', '✓ Created auth.controller.ts', '✓ Updated routes.ts', 'Running tests...'],
+      ['Running migrations...', '✓ Added invoices table', '✓ Created billing.service.ts', 'Generating types...'],
+      ['Updating components...', '✓ Refactored Dashboard.tsx', '✓ Added dark mode', 'Building...']
+    ];
 
-    input.addEventListener('focus', updateDropdown);
+    let indices = [0, 0, 0];
 
-    // Focus terminal on click
-    document.querySelector('.terminal').addEventListener('click', () => input.focus());
-
-    // Initial focus
-    input.focus();
+    setInterval(() => {
+      document.querySelectorAll('.workspace').forEach((ws, i) => {
+        const activityLines = ws.querySelectorAll('.activity-line');
+        indices[i] = (indices[i] + 1) % activities[i].length;
+        activityLines[0].textContent = activities[i][indices[i]];
+        activityLines[1].textContent = activities[i][(indices[i] + 1) % activities[i].length];
+      });
+    }, 2000);
   </script>
 </body>
 </html>
