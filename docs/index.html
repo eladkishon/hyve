@@ -12,36 +12,38 @@
     html, body {
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
       font-family: 'Space Grotesk', sans-serif;
       background: #000;
       color: #fff;
     }
 
-    canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-    }
-
-    .overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
+    .page {
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Grid background */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
       pointer-events: none;
+      z-index: 0;
     }
 
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 30px;
-      pointer-events: auto;
+      padding: 20px 40px;
+      position: relative;
+      z-index: 10;
     }
 
     .logo-section {
@@ -50,10 +52,10 @@
       gap: 12px;
     }
 
-    .logo { width: 40px; height: 40px; }
+    .logo { width: 36px; height: 36px; }
 
     .logo-text {
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       font-weight: 700;
       letter-spacing: -0.5px;
     }
@@ -83,33 +85,38 @@
     .btn-ghost:hover { color: #fff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); }
     .btn-red { background: #dc2626; color: #fff; }
     .btn-red:hover { background: #ef4444; }
-    .btn-star:hover { color: #fbbf24; border-color: #fbbf24; }
 
-    .center-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    /* Hero Section */
+    .hero {
       text-align: center;
-      padding: 20px;
+      padding: 60px 20px 40px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .hero-logo {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 0 30px rgba(220, 38, 38, 0.4));
     }
 
     .hero-title {
-      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-size: clamp(2.5rem, 7vw, 4.5rem);
       font-weight: 700;
-      line-height: 1;
-      margin-bottom: 16px;
+      line-height: 1.1;
+      margin-bottom: 20px;
       letter-spacing: -2px;
     }
 
     .hero-title span { color: #dc2626; }
 
     .hero-desc {
-      font-size: clamp(1rem, 2vw, 1.25rem);
+      font-size: clamp(1rem, 2vw, 1.2rem);
       color: #666;
-      max-width: 600px;
-      margin-bottom: 30px;
+      max-width: 550px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
     }
 
     .cta-section {
@@ -117,7 +124,6 @@
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      pointer-events: auto;
     }
 
     .install-cmd {
@@ -155,74 +161,29 @@
 
     .docs-link:hover { color: #dc2626; }
 
-    .legend {
-      position: fixed;
-      bottom: 30px;
-      left: 30px;
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: auto;
+    /* Diagram Section */
+    .diagram-section {
+      flex: 1;
+      position: relative;
+      min-height: 500px;
+      z-index: 5;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.75rem;
-      color: #666;
+    canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
-
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .legend-dot.main { background: #dc2626; }
-    .legend-dot.claude { background: #dc2626; box-shadow: 0 0 10px #dc2626; }
-    .legend-dot.cursor { background: #0ea5e9; box-shadow: 0 0 10px #0ea5e9; }
-    .legend-dot.aider { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; }
-    .legend-dot.db { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
-
-    .stats {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      z-index: 20;
-      display: flex;
-      gap: 20px;
-      pointer-events: auto;
-    }
-
-    .stat {
-      text-align: right;
-    }
-
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stat-label {
-      font-size: 0.7rem;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    .stat-value.red { color: #dc2626; }
-    .stat-value.green { color: #22c55e; }
-    .stat-value.blue { color: #0ea5e9; }
 
     /* Activity feed */
     .activity-feed {
       position: fixed;
-      top: 80px;
+      top: 100px;
       right: 30px;
       z-index: 20;
-      width: 280px;
+      width: 260px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -230,7 +191,7 @@
     }
 
     .activity-item {
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.9);
       border: 1px solid #222;
       border-radius: 8px;
       padding: 10px 12px;
@@ -239,9 +200,9 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      animation: slideIn 0.3s ease-out;
       opacity: 0;
       transform: translateX(20px);
+      transition: all 0.3s ease-out;
     }
 
     .activity-item.visible {
@@ -252,12 +213,6 @@
     .activity-item.fade-out {
       opacity: 0;
       transform: translateX(-20px);
-      transition: all 0.3s ease-out;
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(20px); }
-      to { opacity: 1; transform: translateX(0); }
     }
 
     .activity-dot {
@@ -277,41 +232,80 @@
     .activity-text .file { color: #22c55e; }
     .activity-text .cmd { color: #f59e0b; }
 
-    /* Keyboard hint */
-    .keyboard-hint {
+    /* Stats */
+    .stats {
       position: fixed;
       bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
+      right: 30px;
       z-index: 20;
-      font-size: 0.7rem;
-      color: #444;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 24px;
     }
 
-    .key {
-      background: #111;
-      border: 1px solid #333;
-      padding: 4px 8px;
-      border-radius: 4px;
+    .stat {
+      text-align: right;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
     }
 
-    @media (max-width: 768px) {
-      .activity-feed, .stats, .legend, .keyboard-hint { display: none; }
+    .stat-label {
+      font-size: 0.65rem;
+      color: #555;
+      text-transform: uppercase;
+    }
+
+    .stat-value.red { color: #dc2626; }
+    .stat-value.green { color: #22c55e; }
+    .stat-value.blue { color: #0ea5e9; }
+
+    /* Legend */
+    .legend {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.7rem;
+      color: #555;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.main { background: #dc2626; }
+    .legend-dot.claude { background: #dc2626; box-shadow: 0 0 8px #dc2626; }
+    .legend-dot.cursor { background: #0ea5e9; box-shadow: 0 0 8px #0ea5e9; }
+    .legend-dot.aider { background: #8b5cf6; box-shadow: 0 0 8px #8b5cf6; }
+    .legend-dot.db { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+
+    @media (max-width: 900px) {
+      .activity-feed, .stats, .legend { display: none; }
       .header { padding: 15px 20px; }
-      .nav { gap: 6px; }
-      .btn { padding: 6px 12px; font-size: 0.7rem; }
+      .hero { padding: 40px 20px 30px; }
+      .hero-logo { width: 70px; height: 70px; }
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <div class="page">
+    <div class="grid-bg"></div>
 
-  <div class="overlay">
-    <div class="header">
+    <header class="header">
       <div class="logo-section">
         <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
         <span class="logo-text">Hyve</span>
@@ -319,12 +313,13 @@
       <nav class="nav">
         <a href="docs.html" class="btn btn-ghost">Docs</a>
         <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
-        <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">Star</a>
+        <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost">Star</a>
         <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
       </nav>
-    </div>
+    </header>
 
-    <div class="center-content">
+    <section class="hero">
+      <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="hero-logo">
       <h1 class="hero-title">Workspaces for<br><span>AI Agents</span></h1>
       <p class="hero-desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. Zero conflicts.</p>
       <div class="cta-section">
@@ -334,8 +329,14 @@
         </div>
         <a href="docs.html" class="docs-link">Read the docs →</a>
       </div>
-    </div>
+    </section>
+
+    <section class="diagram-section">
+      <canvas id="canvas"></canvas>
+    </section>
   </div>
+
+  <div class="activity-feed" id="activity-feed"></div>
 
   <div class="legend">
     <div class="legend-item"><div class="legend-dot main"></div> Main Branch</div>
@@ -348,7 +349,7 @@
   <div class="stats">
     <div class="stat">
       <div class="stat-value red" id="workspaces-count">3</div>
-      <div class="stat-label">Active Workspaces</div>
+      <div class="stat-label">Workspaces</div>
     </div>
     <div class="stat">
       <div class="stat-value green" id="commits-count">0</div>
@@ -356,39 +357,28 @@
     </div>
     <div class="stat">
       <div class="stat-value blue" id="files-count">0</div>
-      <div class="stat-label">Files Changed</div>
+      <div class="stat-label">Files</div>
     </div>
-  </div>
-
-  <div class="activity-feed" id="activity-feed"></div>
-
-  <div class="keyboard-hint">
-    <span class="key">Space</span> Toggle animation
-    <span class="key">R</span> Reset
   </div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const section = document.querySelector('.diagram-section');
 
     let width, height;
-    let paused = false;
     let time = 0;
     let commits = 0;
     let filesChanged = 0;
 
-    // Colors
     const COLORS = {
       main: '#dc2626',
       claude: '#dc2626',
       cursor: '#0ea5e9',
       aider: '#8b5cf6',
       db: '#22c55e',
-      grid: 'rgba(220, 38, 38, 0.03)',
-      line: 'rgba(255,255,255,0.03)'
     };
 
-    // Nodes in the system
     const nodes = [];
     const particles = [];
     const connections = [];
@@ -399,29 +389,24 @@
         this.label = label;
         this.x = x;
         this.y = y;
-        this.targetX = x;
-        this.targetY = y;
         this.color = color;
-        this.radius = type === 'main' ? 12 : type === 'workspace' ? 35 : 20;
+        this.radius = type === 'main' ? 14 : type === 'workspace' ? 45 : 22;
         this.pulse = 0;
         this.activity = 0;
-        this.children = [];
       }
 
       update() {
-        this.x += (this.targetX - this.x) * 0.05;
-        this.y += (this.targetY - this.y) * 0.05;
-        this.pulse = (Math.sin(time * 0.05 + this.x * 0.01) + 1) * 0.5;
-        this.activity *= 0.98;
+        this.pulse = (Math.sin(time * 0.04 + this.x * 0.01) + 1) * 0.5;
+        this.activity *= 0.97;
       }
 
       draw() {
         ctx.save();
 
-        // Glow effect
-        const glowRadius = this.radius + 20 + this.pulse * 10 + this.activity * 30;
+        // Glow
+        const glowRadius = this.radius + 25 + this.pulse * 15 + this.activity * 40;
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
-        gradient.addColorStop(0, this.color + '40');
+        gradient.addColorStop(0, this.color + '35');
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -429,62 +414,62 @@
         ctx.fill();
 
         if (this.type === 'workspace') {
-          // Workspace box
-          const boxSize = this.radius * 2;
+          const boxW = this.radius * 2.2;
+          const boxH = this.radius * 1.6;
+
+          // Box
           ctx.fillStyle = '#0a0a0a';
           ctx.strokeStyle = this.color;
           ctx.lineWidth = 2;
-          roundRect(ctx, this.x - boxSize, this.y - boxSize * 0.7, boxSize * 2, boxSize * 1.4, 8);
+          roundRect(ctx, this.x - boxW, this.y - boxH / 2, boxW * 2, boxH, 10);
           ctx.fill();
           ctx.stroke();
 
-          // Header
+          // Header bar
           ctx.fillStyle = '#111';
-          roundRect(ctx, this.x - boxSize + 2, this.y - boxSize * 0.7 + 2, boxSize * 2 - 4, 20, [6, 6, 0, 0]);
+          roundRect(ctx, this.x - boxW + 2, this.y - boxH / 2 + 2, boxW * 2 - 4, 22, [8, 8, 0, 0]);
           ctx.fill();
 
           // Label
           ctx.fillStyle = '#fff';
-          ctx.font = '600 11px Space Grotesk';
+          ctx.font = '600 12px Space Grotesk';
           ctx.textAlign = 'center';
-          ctx.fillText(this.label, this.x, this.y - boxSize * 0.7 + 14);
+          ctx.fillText(this.label, this.x, this.y - boxH / 2 + 16);
 
-          // Activity indicator
+          // Activity dot
           ctx.fillStyle = this.color;
           ctx.beginPath();
-          ctx.arc(this.x + boxSize - 12, this.y - boxSize * 0.7 + 12, 4, 0, Math.PI * 2);
+          ctx.arc(this.x + boxW - 14, this.y - boxH / 2 + 12, 5, 0, Math.PI * 2);
           ctx.fill();
 
           // Port info
-          ctx.fillStyle = '#555';
-          ctx.font = '500 9px JetBrains Mono';
-          ctx.fillText('server :' + (4000 + nodes.indexOf(this) * 1000), this.x, this.y);
-          ctx.fillText('db :' + (5500 + nodes.indexOf(this)), this.x, this.y + 14);
+          ctx.fillStyle = '#666';
+          ctx.font = '500 10px JetBrains Mono';
+          const idx = nodes.indexOf(this);
+          ctx.fillText(`server :${4000 + idx * 1000}`, this.x, this.y + 6);
+          ctx.fillText(`db :${5500 + idx}`, this.x, this.y + 22);
 
         } else if (this.type === 'main') {
-          // Main branch node
           ctx.fillStyle = this.color;
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = '#fff';
-          ctx.font = '600 10px Space Grotesk';
+          ctx.font = '700 11px Space Grotesk';
           ctx.textAlign = 'center';
-          ctx.fillText('main', this.x, this.y + 30);
-
+          ctx.fillText('main', this.x, this.y + 32);
         } else {
-          // Service node (db, etc)
           ctx.fillStyle = '#0a0a0a';
           ctx.strokeStyle = this.color;
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
 
           ctx.fillStyle = this.color;
-          ctx.font = '500 8px JetBrains Mono';
+          ctx.font = '500 9px JetBrains Mono';
           ctx.textAlign = 'center';
           ctx.fillText(this.label, this.x, this.y + 4);
         }
@@ -492,45 +477,41 @@
         ctx.restore();
       }
 
-      trigger() {
-        this.activity = 1;
-      }
+      trigger() { this.activity = 1; }
     }
 
     class Particle {
-      constructor(fromNode, toNode, color) {
-        this.fromNode = fromNode;
-        this.toNode = toNode;
+      constructor(from, to, color) {
+        this.from = from;
+        this.to = to;
         this.color = color;
         this.progress = 0;
-        this.speed = 0.01 + Math.random() * 0.02;
-        this.size = 3 + Math.random() * 2;
+        this.speed = 0.012 + Math.random() * 0.015;
+        this.size = 4 + Math.random() * 2;
       }
 
       update() {
         this.progress += this.speed;
         if (this.progress >= 1) {
-          this.toNode.trigger();
-          return true; // Remove particle
+          this.to.trigger();
+          return true;
         }
         return false;
       }
 
       draw() {
-        const x = this.fromNode.x + (this.toNode.x - this.fromNode.x) * this.progress;
-        const y = this.fromNode.y + (this.toNode.y - this.fromNode.y) * this.progress;
+        const x = this.from.x + (this.to.x - this.from.x) * this.progress;
+        const y = this.from.y + (this.to.y - this.from.y) * this.progress;
 
-        // Trail
         ctx.save();
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, 20);
-        gradient.addColorStop(0, this.color + 'aa');
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
+        gradient.addColorStop(0, this.color + 'bb');
         gradient.addColorStop(1, 'transparent');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.arc(x, y, 25, 0, Math.PI * 2);
         ctx.fill();
 
-        // Core
         ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.arc(x, y, this.size, 0, Math.PI * 2);
@@ -548,41 +529,38 @@
 
       draw() {
         ctx.save();
-        ctx.strokeStyle = this.color + '30';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = this.color + '25';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
         ctx.beginPath();
         ctx.moveTo(this.from.x, this.from.y);
-
-        // Curved connection
         const midX = (this.from.x + this.to.x) / 2;
-        const midY = (this.from.y + this.to.y) / 2 - 50;
+        const midY = (this.from.y + this.to.y) / 2 - 40;
         ctx.quadraticCurveTo(midX, midY, this.to.x, this.to.y);
         ctx.stroke();
         ctx.restore();
       }
     }
 
-    function roundRect(ctx, x, y, width, height, radius) {
-      if (typeof radius === 'number') {
-        radius = [radius, radius, radius, radius];
-      }
+    function roundRect(ctx, x, y, w, h, r) {
+      if (typeof r === 'number') r = [r, r, r, r];
       ctx.beginPath();
-      ctx.moveTo(x + radius[0], y);
-      ctx.lineTo(x + width - radius[1], y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + radius[1]);
-      ctx.lineTo(x + width, y + height - radius[2]);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - radius[2], y + height);
-      ctx.lineTo(x + radius[3], y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius[3]);
-      ctx.lineTo(x, y + radius[0]);
-      ctx.quadraticCurveTo(x, y, x + radius[0], y);
+      ctx.moveTo(x + r[0], y);
+      ctx.lineTo(x + w - r[1], y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
+      ctx.lineTo(x + w, y + h - r[2]);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
+      ctx.lineTo(x + r[3], y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
+      ctx.lineTo(x, y + r[0]);
+      ctx.quadraticCurveTo(x, y, x + r[0], y);
       ctx.closePath();
     }
 
     function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+      const rect = section.getBoundingClientRect();
+      width = canvas.width = rect.width;
+      height = canvas.height = rect.height;
       initNodes();
     }
 
@@ -591,67 +569,44 @@
       connections.length = 0;
 
       const centerX = width / 2;
-      const centerY = height / 2;
+      const mainY = height - 80;
 
-      // Main branch (center line)
-      const mainNode = new Node('main', 'main', centerX, centerY + 50, COLORS.main);
+      // Main node
+      const mainNode = new Node('main', 'main', centerX, mainY, COLORS.main);
       nodes.push(mainNode);
 
-      // Workspaces branching off
-      const workspaceData = [
-        { label: 'auth-feature', color: COLORS.claude, agent: 'Claude' },
-        { label: 'billing-api', color: COLORS.cursor, agent: 'Cursor' },
-        { label: 'ui-refactor', color: COLORS.aider, agent: 'Aider' }
+      // Workspaces
+      const workspaces = [
+        { label: 'auth-feature', color: COLORS.claude },
+        { label: 'billing-api', color: COLORS.cursor },
+        { label: 'ui-refactor', color: COLORS.aider }
       ];
 
-      const spacing = Math.min(300, (width - 200) / 3);
-      workspaceData.forEach((ws, i) => {
+      const spacing = Math.min(280, (width - 100) / 3);
+      workspaces.forEach((ws, i) => {
         const x = centerX + (i - 1) * spacing;
-        const y = centerY - 120;
+        const y = height / 2 - 20;
         const wsNode = new Node('workspace', ws.label, x, y, ws.color);
-        wsNode.agent = ws.agent;
         nodes.push(wsNode);
         connections.push(new Connection(mainNode, wsNode, ws.color));
 
-        // Database node for each workspace
-        const dbNode = new Node('service', 'postgres', x + 60, y + 60, COLORS.db);
+        // DB node
+        const dbNode = new Node('service', 'postgres', x + 70, y + 55, COLORS.db);
         nodes.push(dbNode);
         connections.push(new Connection(wsNode, dbNode, COLORS.db));
       });
     }
 
-    function drawGrid() {
-      ctx.save();
-      ctx.strokeStyle = COLORS.line;
-      ctx.lineWidth = 1;
-
-      const gridSize = 80;
-      const offsetX = (time * 0.2) % gridSize;
-
-      for (let x = -gridSize + offsetX; x < width + gridSize; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-
-      for (let y = 0; y < height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-
     function drawMainBranch() {
-      ctx.save();
       const mainNode = nodes[0];
+      if (!mainNode) return;
+
+      ctx.save();
       const gradient = ctx.createLinearGradient(0, mainNode.y, width, mainNode.y);
       gradient.addColorStop(0, 'transparent');
-      gradient.addColorStop(0.3, COLORS.main + '60');
+      gradient.addColorStop(0.2, COLORS.main + '50');
       gradient.addColorStop(0.5, COLORS.main);
-      gradient.addColorStop(0.7, COLORS.main + '60');
+      gradient.addColorStop(0.8, COLORS.main + '50');
       gradient.addColorStop(1, 'transparent');
 
       ctx.strokeStyle = gradient;
@@ -663,25 +618,45 @@
       ctx.restore();
     }
 
+    function animate() {
+      time++;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, width, height);
+
+      drawMainBranch();
+      connections.forEach(c => c.draw());
+      nodes.forEach(n => { n.update(); n.draw(); });
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        if (particles[i].update()) {
+          particles.splice(i, 1);
+        } else {
+          particles[i].draw();
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
     // Activity feed
     const activities = [
-      { agent: 'Claude', text: 'Created <span class="file">auth.controller.ts</span>', color: COLORS.claude },
-      { agent: 'Cursor', text: 'Running <span class="cmd">pnpm test</span>', color: COLORS.cursor },
-      { agent: 'Aider', text: 'Refactored <span class="file">Dashboard.tsx</span>', color: COLORS.aider },
-      { agent: 'Claude', text: 'Added JWT middleware', color: COLORS.claude },
-      { agent: 'Cursor', text: 'Created <span class="file">billing.service.ts</span>', color: COLORS.cursor },
-      { agent: 'Aider', text: 'Running <span class="cmd">migrations</span>', color: COLORS.aider },
-      { agent: 'Claude', text: 'Updated <span class="file">routes.ts</span>', color: COLORS.claude },
-      { agent: 'Cursor', text: 'Added invoices table', color: COLORS.cursor },
-      { agent: 'Aider', text: 'Created <span class="file">ThemeProvider.tsx</span>', color: COLORS.aider },
+      { text: 'Created <span class="file">auth.controller.ts</span>', color: COLORS.claude },
+      { text: 'Running <span class="cmd">pnpm test</span>', color: COLORS.cursor },
+      { text: 'Refactored <span class="file">Dashboard.tsx</span>', color: COLORS.aider },
+      { text: 'Added JWT middleware', color: COLORS.claude },
+      { text: 'Created <span class="file">billing.service.ts</span>', color: COLORS.cursor },
+      { text: 'Running <span class="cmd">migrations</span>', color: COLORS.aider },
+      { text: 'Updated <span class="file">routes.ts</span>', color: COLORS.claude },
+      { text: 'Added invoices table', color: COLORS.cursor },
+      { text: 'Created <span class="file">ThemeProvider.tsx</span>', color: COLORS.aider },
     ];
 
-    let activityIndex = 0;
+    let activityIdx = 0;
     const feedEl = document.getElementById('activity-feed');
 
     function addActivity() {
-      const activity = activities[activityIndex % activities.length];
-      activityIndex++;
+      const activity = activities[activityIdx % activities.length];
+      activityIdx++;
 
       const item = document.createElement('div');
       item.className = 'activity-item';
@@ -689,93 +664,41 @@
         <div class="activity-dot" style="background: ${activity.color}; box-shadow: 0 0 8px ${activity.color}"></div>
         <div class="activity-text">${activity.text}</div>
       `;
-
       feedEl.insertBefore(item, feedEl.firstChild);
-
       setTimeout(() => item.classList.add('visible'), 10);
 
-      // Remove old items
       const items = feedEl.querySelectorAll('.activity-item');
       if (items.length > 5) {
-        const oldItem = items[items.length - 1];
-        oldItem.classList.add('fade-out');
-        setTimeout(() => oldItem.remove(), 300);
+        const old = items[items.length - 1];
+        old.classList.add('fade-out');
+        setTimeout(() => old.remove(), 300);
       }
 
-      // Update stats
       filesChanged++;
       if (Math.random() > 0.5) commits++;
       document.getElementById('files-count').textContent = filesChanged;
       document.getElementById('commits-count').textContent = commits;
 
-      // Spawn particle
+      // Particle
       const wsNodes = nodes.filter(n => n.type === 'workspace');
       const wsNode = wsNodes[Math.floor(Math.random() * wsNodes.length)];
-      if (wsNode) {
+      if (wsNode && nodes[0]) {
         particles.push(new Particle(nodes[0], wsNode, wsNode.color));
       }
     }
 
-    function animate() {
-      if (!paused) {
-        time++;
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, width, height);
-
-        drawGrid();
-        drawMainBranch();
-
-        // Update and draw connections
-        connections.forEach(c => c.draw());
-
-        // Update and draw nodes
-        nodes.forEach(n => {
-          n.update();
-          n.draw();
-        });
-
-        // Update and draw particles
-        for (let i = particles.length - 1; i >= 0; i--) {
-          if (particles[i].update()) {
-            particles.splice(i, 1);
-          } else {
-            particles[i].draw();
-          }
-        }
-      }
-      requestAnimationFrame(animate);
-    }
-
-    // Events
-    window.addEventListener('resize', resize);
-
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        paused = !paused;
-      } else if (e.code === 'KeyR') {
-        commits = 0;
-        filesChanged = 0;
-        document.getElementById('files-count').textContent = 0;
-        document.getElementById('commits-count').textContent = 0;
-        feedEl.innerHTML = '';
-        activityIndex = 0;
-      }
-    });
-
     function copyInstall() {
       navigator.clipboard.writeText('npm install -g hyve-cli');
       const cmd = document.querySelector('.install-cmd span:first-child');
-      const original = cmd.textContent;
+      const orig = cmd.textContent;
       cmd.textContent = 'Copied!';
-      setTimeout(() => cmd.textContent = original, 1500);
+      setTimeout(() => cmd.textContent = orig, 1500);
     }
 
     // Init
+    window.addEventListener('resize', resize);
     resize();
     animate();
-
-    // Start activity feed
     setInterval(addActivity, 2000);
     setTimeout(addActivity, 500);
   </script>
