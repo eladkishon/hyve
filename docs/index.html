@@ -232,20 +232,22 @@
       flex: 1;
     }
 
-    .cta {
+    .header {
+      position: absolute;
+      top: 16px;
+      right: 24px;
       display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
+      gap: 12px;
+      z-index: 10;
     }
 
     .btn {
-      padding: 12px 24px;
-      border-radius: 10px;
+      padding: 8px 16px;
+      border-radius: 8px;
       font-weight: 600;
       text-decoration: none;
-      font-size: 0.9rem;
-      transition: all 0.3s;
+      font-size: 0.8rem;
+      transition: all 0.2s;
       font-family: 'Space Grotesk', sans-serif;
     }
 
@@ -256,19 +258,17 @@
 
     .btn-red:hover {
       background: #ef4444;
-      transform: translateY(-3px);
-      box-shadow: 0 20px 40px rgba(220, 38, 38, 0.3);
     }
 
     .btn-ghost {
       background: transparent;
       color: #666;
-      border: 1px solid #222;
+      border: 1px solid #333;
     }
 
     .btn-ghost:hover {
       color: #fff;
-      border-color: #444;
+      border-color: #555;
     }
 
     .btn-star:hover {
@@ -311,6 +311,11 @@
     <div class="grid-bg"></div>
     <div class="glow"></div>
 
+    <div class="header">
+      <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
+      <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
+    </div>
+
     <div class="content">
       <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
 
@@ -351,12 +356,6 @@
         </div>
       </div>
 
-      <div class="cta">
-        <a href="https://github.com/eladkishon/hyve" class="btn btn-red">View on GitHub</a>
-        <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
-        <a href="https://ko-fi.com/eladkishon" class="btn btn-ghost">☕ Support</a>
-      </div>
-
       <div class="pills">
         <span class="pill">Git Worktrees</span>
         <span class="pill">Database Cloning</span>
@@ -366,7 +365,7 @@
     </div>
 
     <div class="footer">
-      by <a href="https://github.com/eladkishon">@eladkishon</a>
+      by <a href="https://github.com/eladkishon">@eladkishon</a> · <a href="https://ko-fi.com/eladkishon">☕ support</a>
     </div>
   </div>
 
