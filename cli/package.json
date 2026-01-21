@@ -1,6 +1,6 @@
 {
   "name": "hyve-cli",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Workspaces for AI Agents - Run multiple AI agents in parallel with isolated git branches, databases, and ports",
   "type": "module",
   "bin": {

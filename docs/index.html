@@ -17,12 +17,12 @@
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 40px;
     }
 
-    /* Header - minimal */
+    /* Header */
     header {
       padding: 20px 0;
       position: absolute;
@@ -57,42 +57,47 @@
     .btn-primary { background: #dc2626; color: #fff; }
     .btn-primary:hover { background: #ef4444; }
 
-    /* Hero */
+    /* Hero - Side by side */
     .hero {
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      position: relative;
+      align-items: center;
+      padding: 80px 0 40px;
     }
 
-    .hero-content {
-      padding: 120px 0 40px;
-      text-align: center;
-      position: relative;
-      z-index: 10;
+    .hero .container {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 60px;
+      align-items: center;
+    }
+
+    .hero-left {
+      padding-right: 20px;
     }
 
     .hero-logo {
-      width: 180px;
-      height: 180px;
-      margin-bottom: 32px;
-      filter: drop-shadow(0 0 80px rgba(220, 38, 38, 0.6));
+      width: 100px;
+      height: 100px;
+      margin-bottom: 24px;
+      filter: drop-shadow(0 0 60px rgba(220, 38, 38, 0.5));
     }
 
     h1 {
-      font-size: clamp(36px, 6vw, 56px);
+      font-size: clamp(32px, 4vw, 48px);
       font-weight: 800;
-      letter-spacing: -2px;
+      letter-spacing: -1.5px;
       margin-bottom: 16px;
+      line-height: 1.1;
     }
 
     h1 span { color: #dc2626; }
 
     .hero-desc {
-      font-size: 18px;
+      font-size: 17px;
       color: #666;
-      max-width: 480px;
-      margin: 0 auto 32px;
+      margin-bottom: 28px;
+      line-height: 1.6;
     }
 
     .install-box {
@@ -117,29 +122,50 @@
       color: #666;
     }
 
-    /* Diagram area */
-    .diagram-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    /* Diagram - Right side */
+    .hero-diagram {
+      position: relative;
       padding: 20px;
-      min-height: 500px;
+    }
+
+    /* Glow effect behind diagram */
+    .hero-diagram::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(ellipse, rgba(220, 38, 38, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .diagram-wrapper {
+      position: relative;
+      z-index: 1;
     }
 
     .workspaces {
       display: flex;
-      gap: 24px;
-      margin-bottom: 40px;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 20px;
     }
 
     .workspace-card {
-      background: #0a0a0a;
-      border: 1px solid #222;
-      border-radius: 12px;
-      width: 260px;
+      background: linear-gradient(180deg, #0d0d0d 0%, #080808 100%);
+      border: 1px solid #1a1a1a;
+      border-radius: 10px;
+      width: 180px;
       overflow: hidden;
       position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .workspace-card:hover {
+      transform: translateY(-4px);
+      border-color: #333;
     }
 
     .workspace-card::before {
@@ -148,44 +174,44 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 3px;
+      height: 2px;
     }
 
-    .workspace-card.claude::before { background: #dc2626; }
-    .workspace-card.cursor::before { background: #0ea5e9; }
-    .workspace-card.aider::before { background: #8b5cf6; }
+    .workspace-card.claude::before { background: linear-gradient(90deg, #dc2626, #f87171); }
+    .workspace-card.cursor::before { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+    .workspace-card.aider::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
 
-    .workspace-card.claude { border-color: #dc262640; }
-    .workspace-card.cursor { border-color: #0ea5e940; }
-    .workspace-card.aider { border-color: #8b5cf640; }
+    .workspace-card.claude { box-shadow: 0 4px 24px rgba(220, 38, 38, 0.1); }
+    .workspace-card.cursor { box-shadow: 0 4px 24px rgba(14, 165, 233, 0.1); }
+    .workspace-card.aider { box-shadow: 0 4px 24px rgba(139, 92, 246, 0.1); }
 
     .ws-header {
-      padding: 12px 16px;
-      background: #111;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.02);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid #1a1a1a;
+      border-bottom: 1px solid #151515;
     }
 
     .ws-name {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .ws-dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       animation: pulse 2s ease-in-out infinite;
     }
 
-    .claude .ws-dot { background: #dc2626; }
-    .cursor .ws-dot { background: #0ea5e9; }
-    .aider .ws-dot { background: #8b5cf6; }
+    .claude .ws-dot { background: #dc2626; box-shadow: 0 0 8px #dc2626; }
+    .cursor .ws-dot { background: #0ea5e9; box-shadow: 0 0 8px #0ea5e9; }
+    .aider .ws-dot { background: #8b5cf6; box-shadow: 0 0 8px #8b5cf6; }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
@@ -193,22 +219,24 @@
     }
 
     .ws-agent {
-      font-size: 11px;
-      padding: 4px 10px;
+      font-size: 9px;
+      padding: 3px 8px;
       border-radius: 4px;
-      font-weight: 500;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .claude .ws-agent { background: #dc262620; color: #dc2626; }
-    .cursor .ws-agent { background: #0ea5e920; color: #0ea5e9; }
-    .aider .ws-agent { background: #8b5cf620; color: #8b5cf6; }
+    .claude .ws-agent { background: #dc262615; color: #f87171; }
+    .cursor .ws-agent { background: #0ea5e915; color: #38bdf8; }
+    .aider .ws-agent { background: #8b5cf615; color: #a78bfa; }
 
     .ws-body {
-      padding: 16px;
+      padding: 10px 12px;
     }
 
     .ws-section {
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
 
     .ws-section:last-child {
@@ -216,76 +244,46 @@
     }
 
     .ws-label {
-      font-size: 10px;
-      color: #555;
+      font-size: 8px;
+      color: #444;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
     }
 
-    .ws-repos {
+    .ws-items {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
-    .ws-repo {
+    .ws-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 6px 10px;
-      background: #151515;
-      border-radius: 6px;
+      font-size: 10px;
+      padding: 5px 8px;
+      background: #0f0f0f;
+      border-radius: 4px;
     }
 
-    .ws-repo-name {
-      color: #888;
-    }
+    .ws-item-name { color: #666; }
+    .ws-item-value { color: #f59e0b; }
+    .ws-item-port { color: #22c55e; }
 
-    .ws-repo-branch {
-      color: #f59e0b;
-      margin-left: auto;
-    }
-
-    .ws-db {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 8px 10px;
-      background: #0a1a0a;
-      border: 1px solid #22c55e20;
-      border-radius: 6px;
-    }
-
-    .ws-db-icon {
-      color: #22c55e;
-    }
-
-    .ws-db-name {
-      color: #666;
-    }
-
-    .ws-db-port {
-      color: #22c55e;
-      margin-left: auto;
-    }
-
-    /* Connection SVG */
+    /* Connection lines */
     .connections-svg {
       width: 100%;
-      max-width: 900px;
-      height: 80px;
-      margin: -10px 0;
+      height: 50px;
+      margin: -5px 0;
     }
 
     .connection-path {
       fill: none;
-      stroke-width: 2;
-      stroke-dasharray: 6 4;
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+      opacity: 0.6;
     }
 
     /* Main branch */
@@ -293,49 +291,44 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      padding: 16px 32px;
-      background: #111;
-      border: 1px solid #dc262640;
+      gap: 10px;
+      padding: 12px 24px;
+      background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+      border: 1px solid #222;
       border-radius: 8px;
+      width: fit-content;
+      margin: 0 auto;
     }
 
     .main-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       background: #dc2626;
       border-radius: 50%;
+      box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
     }
 
     .main-label {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
     }
 
     .main-sub {
-      color: #555;
-      font-size: 12px;
-    }
-
-    /* Flow indicator */
-    .flow-indicator {
-      text-align: center;
-      margin: 24px 0;
       color: #444;
-      font-size: 12px;
+      font-size: 11px;
     }
 
-    /* Features below */
+    /* Features */
     .features {
       padding: 80px 0;
-      background: #050505;
-      border-top: 1px solid #151515;
+      background: #030303;
+      border-top: 1px solid #111;
     }
 
     .features-title {
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       color: #444;
       text-transform: uppercase;
       letter-spacing: 3px;
@@ -350,10 +343,16 @@
 
     .feature {
       padding: 24px;
-      background: #0a0a0a;
+      background: linear-gradient(180deg, #0a0a0a 0%, #050505 100%);
       border: 1px solid #151515;
       border-radius: 12px;
       text-align: center;
+      transition: all 0.2s;
+    }
+
+    .feature:hover {
+      border-color: #222;
+      transform: translateY(-2px);
     }
 
     .feature-icon {
@@ -376,7 +375,7 @@
     /* Footer */
     footer {
       padding: 32px 0;
-      border-top: 1px solid #151515;
+      border-top: 1px solid #111;
       text-align: center;
     }
 
@@ -389,23 +388,29 @@
 
     footer a:hover { color: #fff; }
 
-    @media (max-width: 900px) {
-      .workspaces {
-        flex-direction: column;
-        align-items: center;
+    @media (max-width: 1100px) {
+      .hero .container {
+        grid-template-columns: 1fr;
+        text-align: center;
       }
-      .workspace-card {
-        width: 100%;
-        max-width: 320px;
+      .hero-left {
+        padding-right: 0;
       }
-      .connections {
-        display: none;
+      .hero-diagram {
+        margin-top: 40px;
       }
     }
 
     @media (max-width: 768px) {
       .features-grid { grid-template-columns: 1fr 1fr; }
-      .hero-logo { width: 120px; height: 120px; }
+      .workspaces { flex-wrap: wrap; }
+      .workspace-card { width: 160px; }
+      .connections-svg { display: none; }
+    }
+
+    @media (max-width: 500px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .workspace-card { width: 100%; max-width: 200px; }
     }
   </style>
 </head>
@@ -421,138 +426,133 @@
   </header>
 
   <section class="hero">
-    <div class="hero-content">
-      <div class="container">
+    <div class="container">
+      <div class="hero-left">
         <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="hero-logo">
-        <h1>Workspaces for <span>AI Agents</span></h1>
-        <p class="hero-desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports.</p>
+        <h1>Workspaces for<br><span>AI Agents</span></h1>
+        <p class="hero-desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. No conflicts, no waiting.</p>
         <div class="install-box" onclick="copyInstall()">
           <span>npm install -g hyve-cli</span>
           <span class="icon">📋</span>
         </div>
       </div>
-    </div>
-    <div class="diagram-area">
-      <div class="workspaces">
-        <!-- Claude Workspace -->
-        <div class="workspace-card claude">
-          <div class="ws-header">
-            <div class="ws-name">
-              <span class="ws-dot"></span>
-              auth-feature
-            </div>
-            <span class="ws-agent">Claude</span>
-          </div>
-          <div class="ws-body">
-            <div class="ws-section">
-              <div class="ws-label">Repos (isolated branches)</div>
-              <div class="ws-repos">
-                <div class="ws-repo">
-                  <span class="ws-repo-name">server</span>
-                  <span class="ws-repo-branch">feature/auth</span>
-                </div>
-                <div class="ws-repo">
-                  <span class="ws-repo-name">webapp</span>
-                  <span class="ws-repo-branch">feature/auth</span>
-                </div>
-              </div>
-            </div>
-            <div class="ws-section">
-              <div class="ws-label">Database (cloned)</div>
-              <div class="ws-db">
-                <span class="ws-db-icon">●</span>
-                <span class="ws-db-name">postgres</span>
-                <span class="ws-db-port">:5500</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Cursor Workspace -->
-        <div class="workspace-card cursor">
-          <div class="ws-header">
-            <div class="ws-name">
-              <span class="ws-dot"></span>
-              billing-api
-            </div>
-            <span class="ws-agent">Cursor</span>
-          </div>
-          <div class="ws-body">
-            <div class="ws-section">
-              <div class="ws-label">Repos (isolated branches)</div>
-              <div class="ws-repos">
-                <div class="ws-repo">
-                  <span class="ws-repo-name">server</span>
-                  <span class="ws-repo-branch">feature/billing</span>
+      <div class="hero-diagram">
+        <div class="diagram-wrapper">
+          <div class="workspaces">
+            <!-- Claude -->
+            <div class="workspace-card claude">
+              <div class="ws-header">
+                <div class="ws-name">
+                  <span class="ws-dot"></span>
+                  auth-feature
                 </div>
-                <div class="ws-repo">
-                  <span class="ws-repo-name">payments</span>
-                  <span class="ws-repo-branch">feature/billing</span>
+                <span class="ws-agent">Claude</span>
+              </div>
+              <div class="ws-body">
+                <div class="ws-section">
+                  <div class="ws-label">Branches</div>
+                  <div class="ws-items">
+                    <div class="ws-item">
+                      <span class="ws-item-name">server</span>
+                      <span class="ws-item-value">feature/auth</span>
+                    </div>
+                    <div class="ws-item">
+                      <span class="ws-item-name">webapp</span>
+                      <span class="ws-item-value">feature/auth</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="ws-section">
+                  <div class="ws-label">Database</div>
+                  <div class="ws-item">
+                    <span class="ws-item-name">postgres</span>
+                    <span class="ws-item-port">:5500</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="ws-section">
-              <div class="ws-label">Database (cloned)</div>
-              <div class="ws-db">
-                <span class="ws-db-icon">●</span>
-                <span class="ws-db-name">postgres</span>
-                <span class="ws-db-port">:5501</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Aider Workspace -->
-        <div class="workspace-card aider">
-          <div class="ws-header">
-            <div class="ws-name">
-              <span class="ws-dot"></span>
-              ui-refactor
+            <!-- Cursor -->
+            <div class="workspace-card cursor">
+              <div class="ws-header">
+                <div class="ws-name">
+                  <span class="ws-dot"></span>
+                  billing-api
+                </div>
+                <span class="ws-agent">Cursor</span>
+              </div>
+              <div class="ws-body">
+                <div class="ws-section">
+                  <div class="ws-label">Branches</div>
+                  <div class="ws-items">
+                    <div class="ws-item">
+                      <span class="ws-item-name">server</span>
+                      <span class="ws-item-value">feature/billing</span>
+                    </div>
+                    <div class="ws-item">
+                      <span class="ws-item-name">payments</span>
+                      <span class="ws-item-value">feature/billing</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="ws-section">
+                  <div class="ws-label">Database</div>
+                  <div class="ws-item">
+                    <span class="ws-item-name">postgres</span>
+                    <span class="ws-item-port">:5501</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <span class="ws-agent">Aider</span>
+
+            <!-- Aider -->
+            <div class="workspace-card aider">
+              <div class="ws-header">
+                <div class="ws-name">
+                  <span class="ws-dot"></span>
+                  ui-refactor
+                </div>
+                <span class="ws-agent">Aider</span>
+              </div>
+              <div class="ws-body">
+                <div class="ws-section">
+                  <div class="ws-label">Branches</div>
+                  <div class="ws-items">
+                    <div class="ws-item">
+                      <span class="ws-item-name">webapp</span>
+                      <span class="ws-item-value">feature/ui</span>
+                    </div>
+                    <div class="ws-item">
+                      <span class="ws-item-name">design</span>
+                      <span class="ws-item-value">feature/ui</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="ws-section">
+                  <div class="ws-label">Database</div>
+                  <div class="ws-item">
+                    <span class="ws-item-name">postgres</span>
+                    <span class="ws-item-port">:5502</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="ws-body">
-            <div class="ws-section">
-              <div class="ws-label">Repos (isolated branches)</div>
-              <div class="ws-repos">
-                <div class="ws-repo">
-                  <span class="ws-repo-name">webapp</span>
-                  <span class="ws-repo-branch">feature/ui</span>
-                </div>
-                <div class="ws-repo">
-                  <span class="ws-repo-name">design-system</span>
-                  <span class="ws-repo-branch">feature/ui</span>
-                </div>
-              </div>
-            </div>
-            <div class="ws-section">
-              <div class="ws-label">Database (cloned)</div>
-              <div class="ws-db">
-                <span class="ws-db-icon">●</span>
-                <span class="ws-db-name">postgres</span>
-                <span class="ws-db-port">:5502</span>
-              </div>
-            </div>
+
+          <svg class="connections-svg" viewBox="0 0 600 50" preserveAspectRatio="xMidYMid meet">
+            <path class="connection-path" stroke="#dc2626" d="M100 0 L100 25 Q100 35 110 35 L300 35 L300 50"/>
+            <path class="connection-path" stroke="#0ea5e9" d="M300 0 L300 50"/>
+            <path class="connection-path" stroke="#8b5cf6" d="M500 0 L500 25 Q500 35 490 35 L300 35 L300 50"/>
+          </svg>
+
+          <div class="main-branch">
+            <span class="main-dot"></span>
+            <span class="main-label">main</span>
+            <span class="main-sub">shared codebase</span>
           </div>
         </div>
       </div>
-
-      <svg class="connections-svg" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet">
-        <!-- Left line (Claude) -->
-        <path class="connection-path" stroke="#dc2626" d="M165 0 L165 40 Q165 50 175 50 L450 50 L450 80"/>
-        <!-- Center line (Cursor) -->
-        <path class="connection-path" stroke="#0ea5e9" d="M450 0 L450 80"/>
-        <!-- Right line (Aider) -->
-        <path class="connection-path" stroke="#8b5cf6" d="M735 0 L735 40 Q735 50 725 50 L450 50 L450 80"/>
-      </svg>
-
-      <div class="main-branch">
-        <span class="main-dot"></span>
-        <span class="main-label">main</span>
-        <span class="main-sub">shared codebase</span>
-      </div>
-
-      <div class="flow-indicator">Each workspace branches from main with its own database clone</div>
     </div>
   </section>
 
