@@ -274,25 +274,19 @@
       margin-left: auto;
     }
 
-    /* Connection lines */
-    .connections {
-      position: relative;
-      height: 60px;
+    /* Connection SVG */
+    .connections-svg {
       width: 100%;
       max-width: 900px;
+      height: 80px;
+      margin: -10px 0;
     }
 
-    .connection-line {
-      position: absolute;
-      bottom: 0;
-      width: 2px;
-      height: 60px;
-      background: linear-gradient(to bottom, #333, #dc2626);
+    .connection-path {
+      fill: none;
+      stroke-width: 2;
+      stroke-dasharray: 6 4;
     }
-
-    .connection-line.left { left: calc(50% - 280px); }
-    .connection-line.center { left: 50%; transform: translateX(-50%); }
-    .connection-line.right { right: calc(50% - 280px); }
 
     /* Main branch */
     .main-branch {
@@ -543,11 +537,14 @@
         </div>
       </div>
 
-      <div class="connections">
-        <div class="connection-line left"></div>
-        <div class="connection-line center"></div>
-        <div class="connection-line right"></div>
-      </div>
+      <svg class="connections-svg" viewBox="0 0 900 80" preserveAspectRatio="xMidYMid meet">
+        <!-- Left line (Claude) -->
+        <path class="connection-path" stroke="#dc2626" d="M165 0 L165 40 Q165 50 175 50 L450 50 L450 80"/>
+        <!-- Center line (Cursor) -->
+        <path class="connection-path" stroke="#0ea5e9" d="M450 0 L450 80"/>
+        <!-- Right line (Aider) -->
+        <path class="connection-path" stroke="#8b5cf6" d="M735 0 L735 40 Q735 50 725 50 L450 50 L450 80"/>
+      </svg>
 
       <div class="main-branch">
         <span class="main-dot"></span>
