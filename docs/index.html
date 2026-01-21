@@ -165,7 +165,7 @@
       background: linear-gradient(180deg, #0d0d0d 0%, #080808 100%);
       border: 1px solid #1a1a1a;
       border-radius: 10px;
-      width: 180px;
+      width: 200px;
       overflow: hidden;
       position: relative;
       transition: all 0.3s ease;
@@ -269,6 +269,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
       padding: 5px 8px;
@@ -276,8 +277,8 @@
       border-radius: 4px;
     }
 
-    .ws-item-name { color: #666; }
-    .ws-item-value { color: #f59e0b; }
+    .ws-item-name { color: #666; flex-shrink: 0; }
+    .ws-item-value { color: #f59e0b; text-align: right; }
     .ws-item-port { color: #22c55e; }
 
     /* Connection lines */
