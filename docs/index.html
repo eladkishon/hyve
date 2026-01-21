@@ -3,605 +3,242 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hyve - Isolated Workspaces for AI Agents & Multi-Repo Development</title>
-  <meta name="description" content="Run multiple AI coding agents in parallel with isolated git worktrees, databases, and services. Built for Claude Code, Cursor, and Aider.">
+  <title>Hyve - Workspaces for AI Agents</title>
   <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
-
-  <!-- Open Graph -->
-  <meta property="og:title" content="Hyve - Isolated Workspaces for AI Agents & Multi-Repo Development">
-  <meta property="og:description" content="Run multiple AI coding agents in parallel with isolated git worktrees, databases, and services.">
-  <meta property="og:image" content="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
-  <meta property="og:url" content="https://eladkishon.github.io/hyve">
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
 
   <style>
-    :root {
-      --color-bg: #0a0a0a;
-      --color-bg-secondary: #111111;
-      --color-bg-tertiary: #1a1a1a;
-      --color-text: #ffffff;
-      --color-text-secondary: #a0a0a0;
-      --color-accent: #dc2626;
-      --color-accent-light: #ef4444;
-      --color-border: #2a2a2a;
-      --color-code-bg: #1e1e1e;
-      --gradient-accent: linear-gradient(135deg, #dc2626 0%, #f97316 100%);
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--color-bg);
-      color: var(--color-text);
-      line-height: 1.6;
+      font-family: 'Space Grotesk', sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
       overflow-x: hidden;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* Header */
-    header {
-      padding: 20px 0;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      background: rgba(10, 10, 10, 0.8);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    nav {
+    .page {
+      min-height: 100vh;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 1.5rem;
-      color: var(--color-text);
-      text-decoration: none;
-    }
-
-    .logo-icon {
-      color: var(--color-accent);
-      font-size: 1.8rem;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 32px;
-      align-items: center;
-    }
-
-    .nav-links a {
-      color: var(--color-text-secondary);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: var(--color-text);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s;
-      font-size: 0.95rem;
-    }
-
-    .btn-primary {
-      background: var(--gradient-accent);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(220, 38, 38, 0.3);
-    }
-
-    .btn-secondary {
-      background: var(--color-bg-tertiary);
-      color: var(--color-text);
-      border: 1px solid var(--color-border);
-    }
-
-    .btn-secondary:hover {
-      background: var(--color-border);
-    }
-
-    /* Hero */
-    .hero {
-      padding: 180px 0 120px;
-      text-align: center;
+      justify-content: center;
+      padding: 60px 24px;
       position: relative;
     }
 
-    .hero::before {
-      content: '';
+    /* Animated grid background */
+    .grid-bg {
       position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+    }
+
+    /* Glowing orb */
+    .glow {
+      position: absolute;
+      width: 600px;
       height: 600px;
-      background: radial-gradient(ellipse, rgba(220, 38, 38, 0.15) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(220, 38, 38, 0.15) 0%, transparent 60%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       pointer-events: none;
     }
 
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: var(--color-bg-secondary);
-      border: 1px solid var(--color-border);
-      border-radius: 100px;
-      font-size: 0.875rem;
-      color: var(--color-text-secondary);
-      margin-bottom: 32px;
+    .content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 640px;
     }
 
-    .hero-badge .dot {
-      width: 8px;
-      height: 8px;
-      background: #22c55e;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
+    .logo {
+      width: 200px;
+      margin-bottom: 48px;
+      animation: float 6s ease-in-out infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
 
-    h1 {
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 800;
+    .tagline {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: 700;
       line-height: 1.1;
       margin-bottom: 24px;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
     }
 
-    .hero-gradient {
-      background: var(--gradient-accent);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .tagline span {
+      color: #dc2626;
     }
 
-    .hero-subtitle {
-      font-size: 1.25rem;
-      color: var(--color-text-secondary);
-      max-width: 600px;
-      margin: 0 auto 48px;
+    .desc {
+      color: #666;
+      font-size: 1.15rem;
+      line-height: 1.7;
+      margin-bottom: 48px;
     }
 
-    .hero-buttons {
+    .terminal {
+      background: #0d0d0d;
+      border: 1px solid #1a1a1a;
+      border-radius: 16px;
+      padding: 20px 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      text-align: left;
+      margin-bottom: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .terminal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #dc2626, transparent);
+    }
+
+    .terminal .line {
+      margin-bottom: 8px;
+      opacity: 0;
+      animation: typeIn 0.5s forwards;
+    }
+
+    .terminal .line:nth-child(1) { animation-delay: 0.2s; }
+    .terminal .line:nth-child(2) { animation-delay: 0.6s; }
+    .terminal .line:nth-child(3) { animation-delay: 1s; }
+    .terminal .line:nth-child(4) { animation-delay: 1.4s; }
+
+    @keyframes typeIn {
+      to { opacity: 1; }
+    }
+
+    .terminal .dim { color: #444; }
+    .terminal .cmd { color: #dc2626; }
+    .terminal .arg { color: #888; }
+
+    .cta {
       display: flex;
       gap: 16px;
       justify-content: center;
       flex-wrap: wrap;
     }
 
-    /* Code block */
-    .code-block {
-      background: var(--color-code-bg);
-      border: 1px solid var(--color-border);
+    .btn {
+      padding: 16px 32px;
       border-radius: 12px;
-      padding: 24px;
-      margin: 48px auto;
-      max-width: 600px;
-      text-align: left;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      overflow-x: auto;
-    }
-
-    .code-block .comment {
-      color: #6a737d;
-    }
-
-    .code-block .command {
-      color: #79c0ff;
-    }
-
-    .code-block .prompt {
-      color: var(--color-accent);
-    }
-
-    /* Features */
-    .features {
-      padding: 120px 0;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 64px;
-    }
-
-    .section-header h2 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .section-header p {
-      color: var(--color-text-secondary);
-      font-size: 1.125rem;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
-    }
-
-    .feature-card {
-      background: var(--color-bg-secondary);
-      border: 1px solid var(--color-border);
-      border-radius: 16px;
-      padding: 32px;
-      transition: all 0.3s;
-    }
-
-    .feature-card:hover {
-      border-color: var(--color-accent);
-      transform: translateY(-4px);
-    }
-
-    .feature-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--gradient-accent);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-    }
-
-    .feature-card h3 {
-      font-size: 1.25rem;
       font-weight: 600;
-      margin-bottom: 12px;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all 0.3s;
+      font-family: 'Space Grotesk', sans-serif;
     }
 
-    .feature-card p {
-      color: var(--color-text-secondary);
-      font-size: 0.95rem;
+    .btn-red {
+      background: #dc2626;
+      color: #fff;
     }
 
-    /* Workflow */
-    .workflow {
-      padding: 120px 0;
-      background: var(--color-bg-secondary);
+    .btn-red:hover {
+      background: #ef4444;
+      transform: translateY(-3px);
+      box-shadow: 0 20px 40px rgba(220, 38, 38, 0.3);
     }
 
-    .workflow-steps {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 32px;
+    .btn-ghost {
+      background: transparent;
+      color: #666;
+      border: 1px solid #222;
+    }
+
+    .btn-ghost:hover {
+      color: #fff;
+      border-color: #444;
+    }
+
+    .pills {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
       margin-top: 64px;
     }
 
-    .workflow-step {
-      text-align: center;
+    .pill {
+      padding: 8px 16px;
+      background: #0d0d0d;
+      border: 1px solid #1a1a1a;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      color: #555;
     }
 
-    .step-number {
-      width: 48px;
-      height: 48px;
-      background: var(--color-bg-tertiary);
-      border: 2px solid var(--color-accent);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 1.25rem;
-      color: var(--color-accent);
-      margin: 0 auto 20px;
+    .footer {
+      position: absolute;
+      bottom: 24px;
+      color: #333;
+      font-size: 0.8rem;
     }
 
-    .workflow-step h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .workflow-step p {
-      color: var(--color-text-secondary);
-      font-size: 0.9rem;
-    }
-
-    .workflow-step code {
-      display: block;
-      margin-top: 16px;
-      padding: 12px;
-      background: var(--color-code-bg);
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #79c0ff;
-    }
-
-    /* CTA */
-    .cta {
-      padding: 120px 0;
-      text-align: center;
-    }
-
-    .cta h2 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 24px;
-    }
-
-    .cta p {
-      color: var(--color-text-secondary);
-      font-size: 1.125rem;
-      margin-bottom: 40px;
-    }
-
-    .cta-buttons {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    /* Footer */
-    footer {
-      padding: 48px 0;
-      border-top: 1px solid var(--color-border);
-      text-align: center;
-    }
-
-    .footer-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 24px;
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 24px;
-    }
-
-    .footer-links a {
-      color: var(--color-text-secondary);
+    .footer a {
+      color: #dc2626;
       text-decoration: none;
-      font-size: 0.9rem;
-      transition: color 0.2s;
-    }
-
-    .footer-links a:hover {
-      color: var(--color-text);
-    }
-
-    .footer-credit {
-      color: var(--color-text-secondary);
-      font-size: 0.875rem;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .nav-links {
-        display: none;
-      }
-
-      .hero {
-        padding: 140px 0 80px;
-      }
-
-      .features-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-content {
-        flex-direction: column;
-        text-align: center;
-      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <nav class="container">
-      <a href="#" class="logo">
-        <span class="logo-icon">&#x2B21;</span>
-        Hyve
-      </a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#workflow">How It Works</a>
-        <a href="https://github.com/eladkishon/hyve" target="_blank">GitHub</a>
-        <a href="https://github.com/eladkishon/hyve#configuration" target="_blank">Docs</a>
+  <div class="page">
+    <div class="grid-bg"></div>
+    <div class="glow"></div>
+
+    <div class="content">
+      <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
+
+      <h1 class="tagline">
+        Workspaces for<br><span>AI Agents</span>
+      </h1>
+
+      <p class="desc">
+        Run Claude Code, Cursor, or Aider in parallel.<br>
+        Isolated branches. Isolated databases. Zero conflicts.
+      </p>
+
+      <div class="terminal">
+        <div class="line"><span class="dim">$</span> <span class="cmd">hyve create</span> <span class="arg">auth-feature server webapp</span></div>
+        <div class="line"><span class="dim">$</span> <span class="cmd">hyve run</span> <span class="arg">auth-feature</span></div>
+        <div class="line"><span class="dim"># server running on :4000, db on :5500</span></div>
+        <div class="line"><span class="dim"># another agent? just create another workspace</span></div>
       </div>
-    </nav>
-  </header>
 
-  <main>
-    <section class="hero">
-      <div class="container">
-        <div class="hero-badge">
-          <span class="dot"></span>
-          Built for AI coding agents
-        </div>
-        <h1>
-          Isolated Workspaces for<br>
-          <span class="hero-gradient">AI Agents & Parallel Dev</span>
-        </h1>
-        <p class="hero-subtitle">
-          Run multiple Claude Code, Cursor, or Aider sessions in parallel.
-          Each agent gets isolated git branches, databases, and services.
-        </p>
-        <div class="hero-buttons">
-          <a href="https://github.com/eladkishon/hyve#installation" class="btn btn-primary">
-            Get Started
-          </a>
-          <a href="https://github.com/eladkishon/hyve" class="btn btn-secondary">
-            View on GitHub
-          </a>
-        </div>
-
-        <div class="code-block">
-          <span class="comment"># Create an isolated workspace</span><br>
-          <span class="prompt">$</span> <span class="command">hyve create my-feature server webapp</span><br><br>
-          <span class="comment"># Run your full stack</span><br>
-          <span class="prompt">$</span> <span class="command">hyve run my-feature</span><br><br>
-          <span class="comment"># Both features run simultaneously with isolated DBs</span>
-        </div>
+      <div class="cta">
+        <a href="https://github.com/eladkishon/hyve" class="btn btn-red">View on GitHub</a>
+        <a href="https://buymeacoffee.com/eladkishon" class="btn btn-ghost">Support the project</a>
       </div>
-    </section>
 
-    <section class="features" id="features">
-      <div class="container">
-        <div class="section-header">
-          <h2>Everything You Need</h2>
-          <p>Complete environment isolation for parallel development</p>
-        </div>
-
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">&#127795;</div>
-            <h3>Git Worktree Isolation</h3>
-            <p>Work on multiple features simultaneously with isolated branches. No more git stash or context switching.</p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#128451;</div>
-            <h3>Database Cloning</h3>
-            <p>Each workspace gets its own PostgreSQL container cloned from your dev database. No more "who broke the DB?"</p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#9881;</div>
-            <h3>Service Orchestration</h3>
-            <p>Start your full stack with health checks, correct ports, and environment variables automatically configured.</p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#128187;</div>
-            <h3>VS Code Integration</h3>
-            <p>Workspaces automatically appear in your VS Code workspace file, organized by feature.</p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#129302;</div>
-            <h3>Claude Code Ready</h3>
-            <p>Built-in slash commands, MCP server, and agent tracking for AI coding workflows.</p>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon">&#128295;</div>
-            <h3>.env Auto-Config</h3>
-            <p>All environment files are automatically configured with correct ports and database URLs.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="workflow" id="workflow">
-      <div class="container">
-        <div class="section-header">
-          <h2>How It Works</h2>
-          <p>Get up and running in seconds</p>
-        </div>
-
-        <div class="workflow-steps">
-          <div class="workflow-step">
-            <div class="step-number">1</div>
-            <h3>Initialize</h3>
-            <p>Add Hyve to your project with a simple config file</p>
-            <code>hyve init</code>
-          </div>
-
-          <div class="workflow-step">
-            <div class="step-number">2</div>
-            <h3>Create</h3>
-            <p>Spin up an isolated workspace for your feature</p>
-            <code>hyve create auth server webapp</code>
-          </div>
-
-          <div class="workflow-step">
-            <div class="step-number">3</div>
-            <h3>Run</h3>
-            <p>Start your full stack with one command</p>
-            <code>hyve run auth</code>
-          </div>
-
-          <div class="workflow-step">
-            <div class="step-number">4</div>
-            <h3>Cleanup</h3>
-            <p>Remove workspace when done (branches preserved)</p>
-            <code>hyve cleanup auth</code>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="cta">
-      <div class="container">
-        <h2>Ready to Try Hyve?</h2>
-        <p>Start working on multiple features in parallel today.</p>
-        <div class="cta-buttons">
-          <a href="https://github.com/eladkishon/hyve#installation" class="btn btn-primary">
-            Get Started Free
-          </a>
-          <a href="https://buymeacoffee.com/eladkishon" class="btn btn-secondary">
-            Buy Me a Coffee &#9749;
-          </a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="footer-links">
-          <a href="https://github.com/eladkishon/hyve">GitHub</a>
-          <a href="https://github.com/eladkishon/hyve#configuration">Documentation</a>
-          <a href="https://github.com/eladkishon/hyve/issues">Issues</a>
-          <a href="https://buymeacoffee.com/eladkishon">Support</a>
-        </div>
-        <div class="footer-credit">
-          Made with &#10084; by <a href="https://github.com/eladkishon" style="color: var(--color-accent);">Elad Kishon</a>
-        </div>
+      <div class="pills">
+        <span class="pill">Git Worktrees</span>
+        <span class="pill">Database Cloning</span>
+        <span class="pill">Port Management</span>
+        <span class="pill">Claude Code Ready</span>
       </div>
     </div>
-  </footer>
+
+    <div class="footer">
+      by <a href="https://github.com/eladkishon">@eladkishon</a>
+    </div>
+  </div>
 </body>
 </html>
