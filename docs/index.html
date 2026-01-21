@@ -92,8 +92,8 @@
     }
 
     .terminal {
-      background: #0a0a0a;
-      border: 1px solid #1a1a1a;
+      background: #111;
+      border: 1px solid #333;
       border-radius: 10px;
       flex: 1.2;
       font-family: 'JetBrains Mono', monospace;
@@ -103,11 +103,11 @@
     }
 
     .terminal-header {
-      background: #111;
+      background: #1a1a1a;
       padding: 8px 12px;
       display: flex;
       gap: 6px;
-      border-bottom: 1px solid #1a1a1a;
+      border-bottom: 1px solid #333;
     }
 
     .terminal-dot {
@@ -130,11 +130,12 @@
       margin-bottom: 4px;
       white-space: pre-wrap;
       word-break: break-all;
+      color: #999;
     }
 
-    .terminal-line.dim { color: #444; }
-    .terminal-line.success { color: #16a34a; }
-    .terminal-line.info { color: #666; }
+    .terminal-line.dim { color: #666; }
+    .terminal-line.success { color: #22c55e; }
+    .terminal-line.info { color: #888; }
 
     .terminal-input-line {
       display: flex;
@@ -163,8 +164,8 @@
     }
 
     .workspace-panel {
-      background: #0a0a0a;
-      border: 1px solid #1a1a1a;
+      background: #111;
+      border: 1px solid #333;
       border-radius: 10px;
       flex: 0.8;
       font-family: 'JetBrains Mono', monospace;
@@ -174,10 +175,10 @@
     }
 
     .workspace-panel-header {
-      background: #111;
+      background: #1a1a1a;
       padding: 8px 12px;
-      border-bottom: 1px solid #1a1a1a;
-      color: #555;
+      border-bottom: 1px solid #333;
+      color: #888;
       font-size: 0.6rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -204,19 +205,31 @@
     }
 
     .ws-service {
-      color: #444;
+      color: #777;
       margin-left: 8px;
       display: flex;
       justify-content: space-between;
     }
 
     .ws-service .port {
-      color: #16a34a;
+      color: #22c55e;
     }
 
     .ws-empty {
-      color: #333;
+      color: #555;
       font-style: italic;
+    }
+
+    .autocomplete-hint {
+      position: absolute;
+      color: #444;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .terminal-input-wrapper {
+      position: relative;
+      flex: 1;
     }
 
     .cta {
@@ -323,7 +336,10 @@
           <div style="padding: 0 12px 12px;">
             <div class="terminal-input-line">
               <span class="terminal-prompt">$</span>
-              <input type="text" class="terminal-input" id="terminal-input" placeholder="hyve " autocomplete="off" spellcheck="false">
+              <div class="terminal-input-wrapper">
+                <input type="text" class="terminal-input" id="terminal-input" autocomplete="off" spellcheck="false">
+                <span class="autocomplete-hint" id="autocomplete-hint"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -375,6 +391,55 @@
     const input = document.getElementById('terminal-input');
     const body = document.getElementById('terminal-body');
     const panel = document.getElementById('workspace-panel');
+    const hint = document.getElementById('autocomplete-hint');
+
+    const subcommands = ['create', 'run', 'status', 'list', 'cleanup', 'halt', 'db'];
+
+    function getAutocomplete(val) {
+      if (!val) return 'hyve create auth server webapp';
+
+      const parts = val.split(' ').filter(p => p);
+
+      // Autocomplete "hyve"
+      if (parts.length === 1 && 'hyve'.startsWith(parts[0]) && parts[0] !== 'hyve') {
+        return 'hyve'.slice(parts[0].length);
+      }
+
+      // After "hyve", suggest subcommands
+      if (parts.length === 1 && parts[0] === 'hyve') {
+        return ' create';
+      }
+
+      // Autocomplete subcommand
+      if (parts.length === 2 && parts[0] === 'hyve') {
+        const sub = subcommands.find(s => s.startsWith(parts[1]) && s !== parts[1]);
+        if (sub) return sub.slice(parts[1].length);
+
+        // After complete subcommand, suggest args
+        if (parts[1] === 'create') return ' myfeature server webapp';
+        if (parts[1] === 'run' || parts[1] === 'cleanup' || parts[1] === 'halt' || parts[1] === 'db') {
+          const names = Object.keys(workspaces);
+          return names.length > 0 ? ' ' + names[0] : ' <name>';
+        }
+      }
+
+      // "hyve create <name>" - suggest repos
+      if (parts.length === 3 && parts[0] === 'hyve' && parts[1] === 'create') {
+        return ' server webapp';
+      }
+
+      // Find matching full command
+      const match = commands.find(c => c.startsWith(val) && c !== val);
+      if (match) return match.slice(val.length);
+
+      return '';
+    }
+
+    function updateHint() {
+      const val = input.value;
+      const completion = getAutocomplete(val);
+      hint.textContent = val + completion;
+    }
 
     function addLine(text, cls = '') {
       const line = document.createElement('div');
@@ -483,17 +548,25 @@
       if (e.key === 'Enter' && input.value.trim()) {
         execute(input.value);
         input.value = '';
+        hint.textContent = '';
       }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const val = input.value;
-        const match = commands.find(c => c.startsWith(val) && c !== val);
-        if (match) input.value = match;
+      if (e.key === 'Tab' || e.key === 'ArrowRight') {
+        const completion = getAutocomplete(input.value);
+        if (completion) {
+          e.preventDefault();
+          input.value = input.value + completion;
+          updateHint();
+        }
       }
     });
 
+    input.addEventListener('input', updateHint);
+
     // Focus terminal on click
     document.querySelector('.terminal').addEventListener('click', () => input.focus());
+
+    // Initial hint
+    updateHint();
   </script>
 </body>
 </html>
