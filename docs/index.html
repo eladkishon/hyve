@@ -5,702 +5,555 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hyve - Workspaces for AI Agents</title>
   <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
-      font-family: 'Space Grotesk', sans-serif;
-      background: #000;
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0a0a0a;
       color: #fff;
+      line-height: 1.6;
     }
 
-    .page {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
     }
 
-    /* Grid background */
-    .grid-bg {
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      pointer-events: none;
-      z-index: 0;
+    /* Header */
+    header {
+      padding: 20px 0;
+      border-bottom: 1px solid #1a1a1a;
     }
 
-    .header {
+    header .container {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 20px 40px;
-      position: relative;
-      z-index: 10;
     }
 
-    .logo-section {
+    .logo {
+      width: 32px;
+      height: 32px;
+    }
+
+    nav {
       display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo { width: 36px; height: 36px; }
-
-    .logo-text {
-      font-size: 1.3rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-
-    .nav {
-      display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
     .btn {
       padding: 8px 16px;
-      border-radius: 6px;
-      font-weight: 600;
+      border-radius: 8px;
+      font-weight: 500;
       text-decoration: none;
-      font-size: 0.8rem;
-      transition: all 0.2s;
-      font-family: 'Space Grotesk', sans-serif;
-      border: none;
-      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.15s;
     }
 
     .btn-ghost {
-      background: rgba(255,255,255,0.05);
       color: #888;
-      border: 1px solid rgba(255,255,255,0.1);
     }
-    .btn-ghost:hover { color: #fff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); }
-    .btn-red { background: #dc2626; color: #fff; }
-    .btn-red:hover { background: #ef4444; }
+    .btn-ghost:hover { color: #fff; }
 
-    /* Hero Section */
+    .btn-primary {
+      background: #dc2626;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #ef4444; }
+
+    /* Hero */
     .hero {
+      padding: 80px 0 60px;
       text-align: center;
-      padding: 60px 20px 40px;
-      position: relative;
-      z-index: 10;
     }
 
     .hero-logo {
-      width: 100px;
-      height: 100px;
-      margin-bottom: 24px;
-      filter: drop-shadow(0 0 30px rgba(220, 38, 38, 0.4));
+      width: 80px;
+      height: 80px;
+      margin-bottom: 32px;
     }
 
-    .hero-title {
-      font-size: clamp(2.5rem, 7vw, 4.5rem);
-      font-weight: 700;
-      line-height: 1.1;
-      margin-bottom: 20px;
+    h1 {
+      font-size: clamp(40px, 6vw, 64px);
+      font-weight: 800;
       letter-spacing: -2px;
+      margin-bottom: 20px;
     }
 
-    .hero-title span { color: #dc2626; }
+    h1 span { color: #dc2626; }
 
     .hero-desc {
-      font-size: clamp(1rem, 2vw, 1.2rem);
+      font-size: 18px;
       color: #666;
-      max-width: 550px;
-      margin: 0 auto 32px;
-      line-height: 1.6;
+      max-width: 500px;
+      margin: 0 auto 40px;
     }
 
-    .cta-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .install-cmd {
-      background: rgba(220, 38, 38, 0.15);
-      border: 1px solid rgba(220, 38, 38, 0.4);
-      padding: 14px 28px;
-      border-radius: 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      display: flex;
+    .install-box {
+      display: inline-flex;
       align-items: center;
       gap: 12px;
+      background: #141414;
+      border: 1px solid #262626;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
-    .install-cmd:hover {
-      background: rgba(220, 38, 38, 0.25);
+    .install-box:hover {
       border-color: #dc2626;
+      background: #1a1a1a;
     }
 
-    .install-cmd .copy-icon {
-      opacity: 0.5;
-      transition: opacity 0.2s;
-    }
-
-    .install-cmd:hover .copy-icon { opacity: 1; }
-
-    .docs-link {
+    .install-box .icon {
       color: #666;
-      font-size: 0.85rem;
-      text-decoration: none;
-      transition: color 0.2s;
+      font-size: 14px;
     }
-
-    .docs-link:hover { color: #dc2626; }
 
     /* Diagram Section */
     .diagram-section {
-      flex: 1;
-      position: relative;
-      min-height: 500px;
-      z-index: 5;
+      padding: 60px 0 80px;
     }
 
-    canvas {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
+    .diagram-title {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 40px;
     }
 
-    /* Activity feed */
-    .activity-feed {
-      position: fixed;
-      top: 100px;
-      right: 30px;
-      z-index: 20;
-      width: 260px;
+    /* The actual diagram */
+    .diagram {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      pointer-events: none;
+      gap: 40px;
+      max-width: 900px;
+      margin: 0 auto;
     }
 
-    .activity-item {
-      background: rgba(0,0,0,0.9);
-      border: 1px solid #222;
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.7rem;
-      font-family: 'JetBrains Mono', monospace;
+    /* Step row */
+    .step-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      opacity: 0;
-      transform: translateX(20px);
-      transition: all 0.3s ease-out;
-    }
-
-    .activity-item.visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    .activity-item.fade-out {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-
-    .activity-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .activity-text {
-      color: #888;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .activity-text .file { color: #22c55e; }
-    .activity-text .cmd { color: #f59e0b; }
-
-    /* Stats */
-    .stats {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      z-index: 20;
-      display: flex;
       gap: 24px;
     }
 
-    .stat {
-      text-align: right;
-    }
-
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stat-label {
-      font-size: 0.65rem;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    .stat-value.red { color: #dc2626; }
-    .stat-value.green { color: #22c55e; }
-    .stat-value.blue { color: #0ea5e9; }
-
-    /* Legend */
-    .legend {
-      position: fixed;
-      bottom: 30px;
-      left: 30px;
-      z-index: 20;
+    .step-num {
+      width: 48px;
+      height: 48px;
+      background: #dc2626;
+      border-radius: 50%;
       display: flex;
-      flex-direction: column;
-      gap: 6px;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      flex-shrink: 0;
     }
 
-    .legend-item {
+    .step-content {
+      flex: 1;
+    }
+
+    .step-label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .step-cmd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      color: #fff;
+      background: #141414;
+      border: 1px solid #262626;
+      padding: 12px 16px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+
+    .step-cmd .flag { color: #dc2626; }
+    .step-cmd .arg { color: #22c55e; }
+
+    /* Arrow */
+    .arrow {
+      display: flex;
+      justify-content: center;
+      padding: 0 0 0 24px;
+    }
+
+    .arrow-line {
+      width: 2px;
+      height: 40px;
+      background: linear-gradient(to bottom, #dc2626, #dc262640);
+      position: relative;
+    }
+
+    .arrow-line::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #dc262640;
+    }
+
+    /* Workspaces visualization */
+    .workspaces-viz {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-left: 72px;
+    }
+
+    .workspace-card {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .workspace-card:nth-child(1) { border-color: #dc262660; }
+    .workspace-card:nth-child(2) { border-color: #0ea5e960; }
+    .workspace-card:nth-child(3) { border-color: #8b5cf660; }
+
+    .workspace-card:nth-child(1):hover { border-color: #dc2626; box-shadow: 0 0 30px #dc262620; }
+    .workspace-card:nth-child(2):hover { border-color: #0ea5e9; box-shadow: 0 0 30px #0ea5e920; }
+    .workspace-card:nth-child(3):hover { border-color: #8b5cf6; box-shadow: 0 0 30px #8b5cf620; }
+
+    .ws-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.7rem;
-      color: #555;
+      margin-bottom: 16px;
     }
 
-    .legend-dot {
+    .ws-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      animation: pulse 2s infinite;
     }
 
-    .legend-dot.main { background: #dc2626; }
-    .legend-dot.claude { background: #dc2626; box-shadow: 0 0 8px #dc2626; }
-    .legend-dot.cursor { background: #0ea5e9; box-shadow: 0 0 8px #0ea5e9; }
-    .legend-dot.aider { background: #8b5cf6; box-shadow: 0 0 8px #8b5cf6; }
-    .legend-dot.db { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+    .workspace-card:nth-child(1) .ws-dot { background: #dc2626; }
+    .workspace-card:nth-child(2) .ws-dot { background: #0ea5e9; }
+    .workspace-card:nth-child(3) .ws-dot { background: #8b5cf6; }
 
-    @media (max-width: 900px) {
-      .activity-feed, .stats, .legend { display: none; }
-      .header { padding: 15px 20px; }
-      .hero { padding: 40px 20px 30px; }
-      .hero-logo { width: 70px; height: 70px; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .ws-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .ws-agent {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+
+    .workspace-card:nth-child(1) .ws-agent { background: #dc262630; color: #dc2626; }
+    .workspace-card:nth-child(2) .ws-agent { background: #0ea5e930; color: #0ea5e9; }
+    .workspace-card:nth-child(3) .ws-agent { background: #8b5cf630; color: #8b5cf6; }
+
+    .ws-details {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ws-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .ws-row .label { color: #666; }
+    .ws-row .value { color: #888; font-family: 'JetBrains Mono', monospace; }
+    .ws-row .value.branch { color: #f59e0b; }
+    .ws-row .value.port { color: #22c55e; }
+
+    /* Result label */
+    .result-label {
+      margin-left: 72px;
+      margin-top: 20px;
+      padding: 16px 20px;
+      background: linear-gradient(90deg, #22c55e10, transparent);
+      border-left: 2px solid #22c55e;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .result-label strong {
+      color: #22c55e;
+    }
+
+    .result-label span {
+      color: #666;
+    }
+
+    /* Features */
+    .features {
+      padding: 60px 0;
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .feature {
+      padding: 24px;
+      background: #141414;
+      border: 1px solid #1a1a1a;
+      border-radius: 12px;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .feature h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature p {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid #1a1a1a;
+      text-align: center;
+    }
+
+    footer a {
+      color: #666;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 0 16px;
+    }
+
+    footer a:hover { color: #fff; }
+
+    @media (max-width: 768px) {
+      .workspaces-viz {
+        grid-template-columns: 1fr;
+        margin-left: 0;
+      }
+      .features-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .step-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .result-label {
+        margin-left: 0;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="grid-bg"></div>
-
-    <header class="header">
-      <div class="logo-section">
-        <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
-        <span class="logo-text">Hyve</span>
-      </div>
-      <nav class="nav">
+  <header>
+    <div class="container">
+      <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
+      <nav>
         <a href="docs.html" class="btn btn-ghost">Docs</a>
         <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
-        <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost">Star</a>
-        <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
+        <a href="https://github.com/eladkishon/hyve" class="btn btn-primary">GitHub</a>
       </nav>
-    </header>
+    </div>
+  </header>
 
-    <section class="hero">
+  <section class="hero">
+    <div class="container">
       <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="hero-logo">
-      <h1 class="hero-title">Workspaces for<br><span>AI Agents</span></h1>
-      <p class="hero-desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. Zero conflicts.</p>
-      <div class="cta-section">
-        <div class="install-cmd" onclick="copyInstall()">
-          <span>npm install -g hyve-cli</span>
-          <span class="copy-icon">📋</span>
-        </div>
-        <a href="docs.html" class="docs-link">Read the docs →</a>
+      <h1>Workspaces for <span>AI Agents</span></h1>
+      <p class="hero-desc">Run multiple AI agents in parallel on the same codebase. Each gets isolated branches, databases, and ports.</p>
+      <div class="install-box" onclick="copyInstall()">
+        <span>npm install -g hyve-cli</span>
+        <span class="icon">📋</span>
       </div>
-    </section>
-
-    <section class="diagram-section">
-      <canvas id="canvas"></canvas>
-    </section>
-  </div>
-
-  <div class="activity-feed" id="activity-feed"></div>
-
-  <div class="legend">
-    <div class="legend-item"><div class="legend-dot main"></div> Main Branch</div>
-    <div class="legend-item"><div class="legend-dot claude"></div> Claude Agent</div>
-    <div class="legend-item"><div class="legend-dot cursor"></div> Cursor Agent</div>
-    <div class="legend-item"><div class="legend-dot aider"></div> Aider Agent</div>
-    <div class="legend-item"><div class="legend-dot db"></div> Database</div>
-  </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value red" id="workspaces-count">3</div>
-      <div class="stat-label">Workspaces</div>
     </div>
-    <div class="stat">
-      <div class="stat-value green" id="commits-count">0</div>
-      <div class="stat-label">Commits</div>
+  </section>
+
+  <section class="diagram-section">
+    <div class="container">
+      <div class="diagram-title">How it works</div>
+
+      <div class="diagram">
+        <!-- Step 1 -->
+        <div class="step-row">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-label">Create isolated workspaces from your main repo</div>
+            <div class="step-cmd">hyve create <span class="arg">auth-feature</span> <span class="flag">server webapp</span></div>
+          </div>
+        </div>
+
+        <div class="arrow"><div class="arrow-line"></div></div>
+
+        <!-- Step 2 -->
+        <div class="step-row">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-label">Each workspace gets its own git branch, database clone, and unique ports</div>
+          </div>
+        </div>
+
+        <!-- Workspaces visualization -->
+        <div class="workspaces-viz">
+          <div class="workspace-card">
+            <div class="ws-header">
+              <div class="ws-dot"></div>
+              <div class="ws-name">auth-feature</div>
+              <div class="ws-agent">Claude</div>
+            </div>
+            <div class="ws-details">
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/auth</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">server</span>
+                <span class="value port">:4000</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">database</span>
+                <span class="value port">:5500</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="workspace-card">
+            <div class="ws-header">
+              <div class="ws-dot"></div>
+              <div class="ws-name">billing-api</div>
+              <div class="ws-agent">Cursor</div>
+            </div>
+            <div class="ws-details">
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/billing</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">server</span>
+                <span class="value port">:5000</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">database</span>
+                <span class="value port">:5501</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="workspace-card">
+            <div class="ws-header">
+              <div class="ws-dot"></div>
+              <div class="ws-name">ui-refactor</div>
+              <div class="ws-agent">Aider</div>
+            </div>
+            <div class="ws-details">
+              <div class="ws-row">
+                <span class="label">branch</span>
+                <span class="value branch">feature/ui</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">server</span>
+                <span class="value port">:6000</span>
+              </div>
+              <div class="ws-row">
+                <span class="label">database</span>
+                <span class="value port">:5502</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arrow"><div class="arrow-line"></div></div>
+
+        <!-- Step 3 -->
+        <div class="step-row">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-label">Point any AI agent at a workspace</div>
+            <div class="step-cmd">claude <span class="flag">--cwd</span> <span class="arg">~/workspaces/auth-feature</span></div>
+          </div>
+        </div>
+
+        <div class="result-label">
+          <strong>Zero conflicts.</strong> <span>Each agent works in complete isolation with its own running services.</span>
+        </div>
+      </div>
     </div>
-    <div class="stat">
-      <div class="stat-value blue" id="files-count">0</div>
-      <div class="stat-label">Files</div>
+  </section>
+
+  <section class="features">
+    <div class="container">
+      <div class="features-grid">
+        <div class="feature">
+          <div class="feature-icon">🌿</div>
+          <h3>Git Worktrees</h3>
+          <p>Each workspace is a separate git worktree on its own branch</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🗄️</div>
+          <h3>Database Cloning</h3>
+          <p>Instant PostgreSQL snapshots via Docker on unique ports</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🔌</div>
+          <h3>Port Isolation</h3>
+          <p>Automatic port allocation so services never conflict</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🤖</div>
+          <h3>Agent Agnostic</h3>
+          <p>Works with Claude, Cursor, Aider, or any AI coding tool</p>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <a href="https://github.com/eladkishon">@eladkishon</a>
+      <a href="https://github.com/eladkishon/hyve">GitHub</a>
+      <a href="docs.html">Documentation</a>
+    </div>
+  </footer>
 
   <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const section = document.querySelector('.diagram-section');
-
-    let width, height;
-    let time = 0;
-    let commits = 0;
-    let filesChanged = 0;
-
-    const COLORS = {
-      main: '#dc2626',
-      claude: '#dc2626',
-      cursor: '#0ea5e9',
-      aider: '#8b5cf6',
-      db: '#22c55e',
-    };
-
-    const nodes = [];
-    const particles = [];
-    const connections = [];
-
-    class Node {
-      constructor(type, label, x, y, color) {
-        this.type = type;
-        this.label = label;
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        this.radius = type === 'main' ? 14 : type === 'workspace' ? 45 : 22;
-        this.pulse = 0;
-        this.activity = 0;
-      }
-
-      update() {
-        this.pulse = (Math.sin(time * 0.04 + this.x * 0.01) + 1) * 0.5;
-        this.activity *= 0.97;
-      }
-
-      draw() {
-        ctx.save();
-
-        // Glow
-        const glowRadius = this.radius + 25 + this.pulse * 15 + this.activity * 40;
-        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
-        gradient.addColorStop(0, this.color + '35');
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (this.type === 'workspace') {
-          const boxW = this.radius * 2.2;
-          const boxH = this.radius * 1.6;
-
-          // Box
-          ctx.fillStyle = '#0a0a0a';
-          ctx.strokeStyle = this.color;
-          ctx.lineWidth = 2;
-          roundRect(ctx, this.x - boxW, this.y - boxH / 2, boxW * 2, boxH, 10);
-          ctx.fill();
-          ctx.stroke();
-
-          // Header bar
-          ctx.fillStyle = '#111';
-          roundRect(ctx, this.x - boxW + 2, this.y - boxH / 2 + 2, boxW * 2 - 4, 22, [8, 8, 0, 0]);
-          ctx.fill();
-
-          // Label
-          ctx.fillStyle = '#fff';
-          ctx.font = '600 12px Space Grotesk';
-          ctx.textAlign = 'center';
-          ctx.fillText(this.label, this.x, this.y - boxH / 2 + 16);
-
-          // Activity dot
-          ctx.fillStyle = this.color;
-          ctx.beginPath();
-          ctx.arc(this.x + boxW - 14, this.y - boxH / 2 + 12, 5, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Port info
-          ctx.fillStyle = '#666';
-          ctx.font = '500 10px JetBrains Mono';
-          const idx = nodes.indexOf(this);
-          ctx.fillText(`server :${4000 + idx * 1000}`, this.x, this.y + 6);
-          ctx.fillText(`db :${5500 + idx}`, this.x, this.y + 22);
-
-        } else if (this.type === 'main') {
-          ctx.fillStyle = this.color;
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.fillStyle = '#fff';
-          ctx.font = '700 11px Space Grotesk';
-          ctx.textAlign = 'center';
-          ctx.fillText('main', this.x, this.y + 32);
-        } else {
-          ctx.fillStyle = '#0a0a0a';
-          ctx.strokeStyle = this.color;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = this.color;
-          ctx.font = '500 9px JetBrains Mono';
-          ctx.textAlign = 'center';
-          ctx.fillText(this.label, this.x, this.y + 4);
-        }
-
-        ctx.restore();
-      }
-
-      trigger() { this.activity = 1; }
-    }
-
-    class Particle {
-      constructor(from, to, color) {
-        this.from = from;
-        this.to = to;
-        this.color = color;
-        this.progress = 0;
-        this.speed = 0.012 + Math.random() * 0.015;
-        this.size = 4 + Math.random() * 2;
-      }
-
-      update() {
-        this.progress += this.speed;
-        if (this.progress >= 1) {
-          this.to.trigger();
-          return true;
-        }
-        return false;
-      }
-
-      draw() {
-        const x = this.from.x + (this.to.x - this.from.x) * this.progress;
-        const y = this.from.y + (this.to.y - this.from.y) * this.progress;
-
-        ctx.save();
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
-        gradient.addColorStop(0, this.color + 'bb');
-        gradient.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, 25, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    class Connection {
-      constructor(from, to, color) {
-        this.from = from;
-        this.to = to;
-        this.color = color;
-      }
-
-      draw() {
-        ctx.save();
-        ctx.strokeStyle = this.color + '25';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 6]);
-        ctx.beginPath();
-        ctx.moveTo(this.from.x, this.from.y);
-        const midX = (this.from.x + this.to.x) / 2;
-        const midY = (this.from.y + this.to.y) / 2 - 40;
-        ctx.quadraticCurveTo(midX, midY, this.to.x, this.to.y);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
-    function roundRect(ctx, x, y, w, h, r) {
-      if (typeof r === 'number') r = [r, r, r, r];
-      ctx.beginPath();
-      ctx.moveTo(x + r[0], y);
-      ctx.lineTo(x + w - r[1], y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r[1]);
-      ctx.lineTo(x + w, y + h - r[2]);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h);
-      ctx.lineTo(x + r[3], y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r[3]);
-      ctx.lineTo(x, y + r[0]);
-      ctx.quadraticCurveTo(x, y, x + r[0], y);
-      ctx.closePath();
-    }
-
-    function resize() {
-      const rect = section.getBoundingClientRect();
-      width = canvas.width = rect.width;
-      height = canvas.height = rect.height;
-      initNodes();
-    }
-
-    function initNodes() {
-      nodes.length = 0;
-      connections.length = 0;
-
-      const centerX = width / 2;
-      const mainY = height - 80;
-
-      // Main node
-      const mainNode = new Node('main', 'main', centerX, mainY, COLORS.main);
-      nodes.push(mainNode);
-
-      // Workspaces
-      const workspaces = [
-        { label: 'auth-feature', color: COLORS.claude },
-        { label: 'billing-api', color: COLORS.cursor },
-        { label: 'ui-refactor', color: COLORS.aider }
-      ];
-
-      const spacing = Math.min(280, (width - 100) / 3);
-      workspaces.forEach((ws, i) => {
-        const x = centerX + (i - 1) * spacing;
-        const y = height / 2 - 20;
-        const wsNode = new Node('workspace', ws.label, x, y, ws.color);
-        nodes.push(wsNode);
-        connections.push(new Connection(mainNode, wsNode, ws.color));
-
-        // DB node
-        const dbNode = new Node('service', 'postgres', x + 70, y + 55, COLORS.db);
-        nodes.push(dbNode);
-        connections.push(new Connection(wsNode, dbNode, COLORS.db));
-      });
-    }
-
-    function drawMainBranch() {
-      const mainNode = nodes[0];
-      if (!mainNode) return;
-
-      ctx.save();
-      const gradient = ctx.createLinearGradient(0, mainNode.y, width, mainNode.y);
-      gradient.addColorStop(0, 'transparent');
-      gradient.addColorStop(0.2, COLORS.main + '50');
-      gradient.addColorStop(0.5, COLORS.main);
-      gradient.addColorStop(0.8, COLORS.main + '50');
-      gradient.addColorStop(1, 'transparent');
-
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, mainNode.y);
-      ctx.lineTo(width, mainNode.y);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    function animate() {
-      time++;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, width, height);
-
-      drawMainBranch();
-      connections.forEach(c => c.draw());
-      nodes.forEach(n => { n.update(); n.draw(); });
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        if (particles[i].update()) {
-          particles.splice(i, 1);
-        } else {
-          particles[i].draw();
-        }
-      }
-
-      requestAnimationFrame(animate);
-    }
-
-    // Activity feed
-    const activities = [
-      { text: 'Created <span class="file">auth.controller.ts</span>', color: COLORS.claude },
-      { text: 'Running <span class="cmd">pnpm test</span>', color: COLORS.cursor },
-      { text: 'Refactored <span class="file">Dashboard.tsx</span>', color: COLORS.aider },
-      { text: 'Added JWT middleware', color: COLORS.claude },
-      { text: 'Created <span class="file">billing.service.ts</span>', color: COLORS.cursor },
-      { text: 'Running <span class="cmd">migrations</span>', color: COLORS.aider },
-      { text: 'Updated <span class="file">routes.ts</span>', color: COLORS.claude },
-      { text: 'Added invoices table', color: COLORS.cursor },
-      { text: 'Created <span class="file">ThemeProvider.tsx</span>', color: COLORS.aider },
-    ];
-
-    let activityIdx = 0;
-    const feedEl = document.getElementById('activity-feed');
-
-    function addActivity() {
-      const activity = activities[activityIdx % activities.length];
-      activityIdx++;
-
-      const item = document.createElement('div');
-      item.className = 'activity-item';
-      item.innerHTML = `
-        <div class="activity-dot" style="background: ${activity.color}; box-shadow: 0 0 8px ${activity.color}"></div>
-        <div class="activity-text">${activity.text}</div>
-      `;
-      feedEl.insertBefore(item, feedEl.firstChild);
-      setTimeout(() => item.classList.add('visible'), 10);
-
-      const items = feedEl.querySelectorAll('.activity-item');
-      if (items.length > 5) {
-        const old = items[items.length - 1];
-        old.classList.add('fade-out');
-        setTimeout(() => old.remove(), 300);
-      }
-
-      filesChanged++;
-      if (Math.random() > 0.5) commits++;
-      document.getElementById('files-count').textContent = filesChanged;
-      document.getElementById('commits-count').textContent = commits;
-
-      // Particle
-      const wsNodes = nodes.filter(n => n.type === 'workspace');
-      const wsNode = wsNodes[Math.floor(Math.random() * wsNodes.length)];
-      if (wsNode && nodes[0]) {
-        particles.push(new Particle(nodes[0], wsNode, wsNode.color));
-      }
-    }
-
     function copyInstall() {
       navigator.clipboard.writeText('npm install -g hyve-cli');
-      const cmd = document.querySelector('.install-cmd span:first-child');
-      const orig = cmd.textContent;
-      cmd.textContent = 'Copied!';
-      setTimeout(() => cmd.textContent = orig, 1500);
+      const box = document.querySelector('.install-box span:first-child');
+      const orig = box.textContent;
+      box.textContent = 'Copied!';
+      setTimeout(() => box.textContent = orig, 1500);
     }
-
-    // Init
-    window.addEventListener('resize', resize);
-    resize();
-    animate();
-    setInterval(addActivity, 2000);
-    setTimeout(addActivity, 500);
   </script>
 </body>
 </html>
