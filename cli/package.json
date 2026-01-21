@@ -1,7 +1,7 @@
 {
-  "name": "hyve",
+  "name": "hyve-cli",
   "version": "1.0.0",
-  "description": "Autonomous Multi-Repo Agent Workspaces",
+  "description": "Workspaces for AI Agents - Run multiple AI agents in parallel with isolated git branches, databases, and ports",
   "type": "module",
   "bin": {
     "hyve": "./dist/index.js"
@@ -11,8 +11,40 @@
     "dev": "tsup src/index.ts --format esm --watch",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "ai",
+    "agents",
+    "workspace",
+    "claude",
+    "cursor",
+    "aider",
+    "git",
+    "worktree",
+    "monorepo",
+    "isolation",
+    "parallel",
+    "development"
+  ],
+  "author": "Elad Kishon",
+  "license": "MIT",
+  "homepage": "https://eladkishon.github.io/hyve",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eladkishon/hyve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eladkishon/hyve/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "dependencies": {
     "@clack/prompts": "^0.7.0",
     "chalk": "^5.3.0",

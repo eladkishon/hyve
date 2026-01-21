@@ -10,6 +10,7 @@ import { haltCommand } from "./commands/halt.js";
 import { dbCommand } from "./commands/db.js";
 import { installCommandsCommand } from "./commands/install-commands.js";
 import { agentCommand } from "./commands/agent.js";
+import { attachCommand } from "./commands/attach.js";
 
 const VERSION = "2.0.0";
 
@@ -41,6 +42,7 @@ program
   .description("Autonomous Multi-Repo Agent Workspaces")
   .version(VERSION)
   .addCommand(createCommand)
+  .addCommand(attachCommand)
   .addCommand(cleanupCommand)
   .addCommand(listCommand)
   .addCommand(statusCommand)

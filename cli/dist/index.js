@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // src/index.ts
-import { Command as Command10 } from "commander";
-import chalk10 from "chalk";
+import { Command as Command11 } from "commander";
+import chalk11 from "chalk";
 
 // src/commands/create.ts
 import { Command } from "commander";
@@ -1605,21 +1605,278 @@ function timeSince(date) {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
+// src/commands/attach.ts
+import { Command as Command10 } from "commander";
+import * as p7 from "@clack/prompts";
+import chalk10 from "chalk";
+import { execSync as execSync4 } from "child_process";
+import { existsSync as existsSync9, writeFileSync as writeFileSync5, readFileSync as readFileSync7, copyFileSync as copyFileSync3 } from "fs";
+import { join as join9 } from "path";
+var attachCommand = new Command10("attach").description("Attach a new repo/service to an existing workspace").argument("[workspace]", "Workspace name").argument("[repos...]", "Repos to attach").option("--no-setup", "Skip running setup scripts").action(async (workspaceName, repos, options) => {
+  const config = loadConfig();
+  const workspaces = listWorkspaces();
+  if (workspaces.length === 0) {
+    console.error(chalk10.red("No workspaces found"));
+    console.log(chalk10.dim("Run 'hyve create <name>' to create a workspace first"));
+    process.exit(1);
+  }
+  if (!workspaceName) {
+    const result = await p7.select({
+      message: "Select workspace to attach to:",
+      options: workspaces.map((ws) => ({ value: ws, label: ws }))
+    });
+    if (p7.isCancel(result)) {
+      p7.cancel("Cancelled");
+      process.exit(0);
+    }
+    workspaceName = result;
+  }
+  if (!workspaceExists(workspaceName)) {
+    console.error(chalk10.red(`Workspace not found: ${workspaceName}`));
+    console.log(chalk10.dim("Run 'hyve list' to see available workspaces"));
+    process.exit(1);
+  }
+  const wsConfig = getWorkspaceConfig(workspaceName);
+  if (!wsConfig) {
+    console.error(chalk10.red(`Workspace config not found: ${workspaceName}`));
+    process.exit(1);
+  }
+  if (repos.length === 0) {
+    const availableRepos = Object.keys(config.repos).filter(
+      (r) => !wsConfig.repos.includes(r)
+    );
+    if (availableRepos.length === 0) {
+      console.log(chalk10.yellow("All configured repos are already attached to this workspace"));
+      process.exit(0);
+    }
+    const result = await p7.multiselect({
+      message: "Select repos to attach:",
+      options: availableRepos.map((r) => ({
+        value: r,
+        label: r,
+        hint: config.repos[r].path
+      }))
+    });
+    if (p7.isCancel(result)) {
+      p7.cancel("Cancelled");
+      process.exit(0);
+    }
+    repos = result;
+  }
+  for (const repo of repos) {
+    if (!config.repos[repo]) {
+      console.error(chalk10.red(`Unknown repo: ${repo}`));
+      console.log(chalk10.dim("Available repos:"), Object.keys(config.repos).join(", "));
+      process.exit(1);
+    }
+    if (wsConfig.repos.includes(repo)) {
+      console.error(chalk10.red(`Repo already attached: ${repo}`));
+      process.exit(1);
+    }
+  }
+  const workspaceDir = getWorkspaceDir(workspaceName);
+  const branchName = wsConfig.branch;
+  const workspaceIndex = getWorkspaceIndex(workspaceName);
+  const dbPort = wsConfig.database?.enabled ? wsConfig.database.port : void 0;
+  console.log(chalk10.cyan(`Attaching to workspace: ${chalk10.bold(workspaceName)}`));
+  console.log(chalk10.dim("Creating git worktrees..."));
+  const successfulRepos = [];
+  for (const repo of repos) {
+    try {
+      const repoPath = getRepoPath(repo);
+      const worktreeDir = join9(workspaceDir, repo);
+      let baseBranch = config.branches.base;
+      try {
+        const stdout = execSync4("git symbolic-ref refs/remotes/origin/HEAD", {
+          cwd: repoPath,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "ignore"]
+        });
+        baseBranch = stdout.replace("refs/remotes/origin/", "").trim();
+      } catch {
+        for (const branch of ["main", "master"]) {
+          try {
+            execSync4(`git show-ref --verify refs/heads/${branch}`, {
+              cwd: repoPath,
+              stdio: "ignore"
+            });
+            baseBranch = branch;
+            break;
+          } catch {
+          }
+        }
+      }
+      try {
+        execSync4(`git fetch origin ${baseBranch}`, { cwd: repoPath, stdio: "ignore" });
+      } catch {
+      }
+      let branchExists = false;
+      try {
+        execSync4(`git show-ref --verify refs/heads/${branchName}`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+        branchExists = true;
+      } catch {
+      }
+      if (!branchExists) {
+        try {
+          execSync4(`git show-ref --verify refs/remotes/origin/${branchName}`, {
+            cwd: repoPath,
+            stdio: "ignore"
+          });
+          branchExists = true;
+        } catch {
+        }
+      }
+      if (branchExists) {
+        execSync4(`git worktree add "${worktreeDir}" "${branchName}"`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+      } else {
+        execSync4(`git worktree add -b "${branchName}" "${worktreeDir}" "${baseBranch}"`, {
+          cwd: repoPath,
+          stdio: "ignore"
+        });
+      }
+      console.log(chalk10.green(`  \u2713 ${repo}`) + chalk10.dim(` \u2192 ${branchName}`));
+      successfulRepos.push(repo);
+    } catch (error) {
+      console.log(chalk10.red(`  \u2717 ${repo}`) + chalk10.dim(` - ${error.message}`));
+    }
+  }
+  if (successfulRepos.length === 0) {
+    console.error(chalk10.red("No repos attached"));
+    process.exit(1);
+  }
+  if (options.setup !== false) {
+    console.log(chalk10.dim("Running setup scripts..."));
+    for (const repo of successfulRepos) {
+      const repoConfig = config.repos[repo];
+      if (!repoConfig?.setup_script) continue;
+      const worktreeDir = join9(workspaceDir, repo);
+      const shellWrapper = config.services.shell_wrapper || "";
+      const command = shellWrapper ? `${shellWrapper} ${repoConfig.setup_script}` : repoConfig.setup_script;
+      try {
+        execSync4(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
+          cwd: worktreeDir,
+          stdio: "inherit",
+          timeout: 6e5
+        });
+        console.log(chalk10.green(`  \u2713 ${repo} setup complete`));
+      } catch (error) {
+        console.log(chalk10.yellow(`  \u26A0 ${repo} setup failed`));
+      }
+    }
+  }
+  console.log(chalk10.dim("Generating .env files..."));
+  for (const repo of successfulRepos) {
+    const worktreeDir = join9(workspaceDir, repo);
+    const mainRepoPath = getRepoPath(repo);
+    const envFile = join9(worktreeDir, ".env");
+    const mainEnvFile = join9(mainRepoPath, ".env");
+    const envExample = join9(worktreeDir, ".env.example");
+    if (existsSync9(mainEnvFile)) {
+      copyFileSync3(mainEnvFile, envFile);
+    } else if (existsSync9(envExample)) {
+      copyFileSync3(envExample, envFile);
+    } else {
+      writeFileSync5(envFile, "");
+    }
+    let envContent = readFileSync7(envFile, "utf-8");
+    if (dbPort) {
+      const newDbUrl = `postgresql://${config.database.user}:${config.database.password}@localhost:${dbPort}/${config.database.name}`;
+      envContent = envContent.replace(/^DATABASE_URL=.*/m, `DATABASE_URL=${newDbUrl}`);
+      envContent = envContent.replace(/^POSTGRES_PORT=.*/m, `POSTGRES_PORT=${dbPort}`);
+    }
+    const repoServiceConfig = config.services.definitions[repo];
+    if (repoServiceConfig) {
+      const newPort = calculateServicePort(
+        repo,
+        repoServiceConfig.default_port,
+        config.services.base_port,
+        workspaceIndex,
+        config.services.port_offset
+      );
+      if (/^PORT=/m.test(envContent)) {
+        envContent = envContent.replace(/^PORT=.*/m, `PORT=${newPort}`);
+      } else {
+        envContent = `PORT=${newPort}
+${envContent}`;
+      }
+    }
+    for (const [serviceName, serviceConfig] of Object.entries(config.services.definitions)) {
+      const defaultPort = serviceConfig.default_port;
+      const workspacePort = calculateServicePort(
+        serviceName,
+        defaultPort,
+        config.services.base_port,
+        workspaceIndex,
+        config.services.port_offset
+      );
+      envContent = envContent.replace(
+        new RegExp(`(localhost|127\\.0\\.0\\.1):${defaultPort}`, "g"),
+        `$1:${workspacePort}`
+      );
+    }
+    if (dbPort && config.database.source_port) {
+      envContent = envContent.replace(
+        new RegExp(`(localhost|127\\.0\\.0\\.1):${config.database.source_port}`, "g"),
+        `$1:${dbPort}`
+      );
+    }
+    if (!envContent.includes("Hyve Workspace")) {
+      envContent += `
+# ===== Hyve Workspace Configuration =====
+`;
+      envContent += `# Workspace: ${workspaceName}
+`;
+    }
+    writeFileSync5(envFile, envContent);
+  }
+  const updatedRepos = [...wsConfig.repos, ...successfulRepos];
+  const updatedConfig = {
+    ...wsConfig,
+    repos: updatedRepos
+  };
+  writeFileSync5(
+    join9(workspaceDir, ".hyve-workspace.json"),
+    JSON.stringify(updatedConfig, null, 2)
+  );
+  console.log(chalk10.dim("Updating CLAUDE.md..."));
+  const claudeMdPath = join9(workspaceDir, "CLAUDE.md");
+  if (existsSync9(claudeMdPath)) {
+    let claudeMd = readFileSync7(claudeMdPath, "utf-8");
+    claudeMd = claudeMd.replace(
+      /^- \*\*Repos:\*\* .*/m,
+      `- **Repos:** ${updatedRepos.join(", ")}`
+    );
+    writeFileSync5(claudeMdPath, claudeMd);
+  }
+  console.log();
+  console.log(chalk10.green.bold("\u2713 Repos Attached!"));
+  console.log();
+  console.log(chalk10.dim("  Attached:"), successfulRepos.join(", "));
+  console.log(chalk10.dim("  Workspace:"), workspaceDir);
+  console.log();
+});
+
 // src/index.ts
 var VERSION = "2.0.0";
 var logo = `
-${chalk10.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
+${chalk11.red(`            \u2584\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584\u2584\u2584
          \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584
-       \u2584\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2584
-      \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
-     \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
-    \u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588
-   \u2580\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2588\u2588\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2580
-    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2580
-     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk10.black(`\u2580\u2580`)}${chalk10.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
+       \u2584\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2584
+      \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
+     \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
+    \u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2584\u2588\u2588\u2584\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588
+   \u2580\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2588\u2588\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2580
+    \u2580\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2580
+     \u2580\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588`)}${chalk11.black(`\u2580\u2580`)}${chalk11.red(`\u2588\u2588\u2588\u2588\u2588\u2588\u2580
        \u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580
          \u2580\u2580\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580\u2580`)}
-${chalk10.white.bold(`
+${chalk11.white.bold(`
     \u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D
     \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557
@@ -1627,10 +1884,10 @@ ${chalk10.white.bold(`
     \u2588\u2588\u2551  \u2588\u2588\u2551   \u2588\u2588\u2551    \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557
     \u255A\u2550\u255D  \u255A\u2550\u255D   \u255A\u2550\u255D     \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D`)}
 `;
-var program = new Command10();
-program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand).addCommand(installCommandsCommand).addCommand(agentCommand);
+var program = new Command11();
+program.name("hyve").description("Autonomous Multi-Repo Agent Workspaces").version(VERSION).addCommand(createCommand).addCommand(attachCommand).addCommand(cleanupCommand).addCommand(listCommand).addCommand(statusCommand).addCommand(runCommand).addCommand(haltCommand).addCommand(dbCommand).addCommand(installCommandsCommand).addCommand(agentCommand);
 program.hook("preAction", () => {
-  console.log(chalk10.red("\u2B21") + " " + chalk10.white.bold("hyve"));
+  console.log(chalk11.red("\u2B21") + " " + chalk11.white.bold("hyve"));
   console.log();
 });
 program.parse();

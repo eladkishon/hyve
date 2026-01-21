@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation - Hyve</title>
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: #000;
+      color: #e0e0e0;
+      line-height: 1.7;
+    }
+
+    a { color: #dc2626; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+      border-bottom: 1px solid #222;
+      margin-bottom: 40px;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo { width: 36px; height: 36px; }
+
+    .logo-text {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .nav {
+      display: flex;
+      gap: 16px;
+    }
+
+    .nav a {
+      color: #888;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .nav a:hover { color: #fff; text-decoration: none; }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+      letter-spacing: -1px;
+    }
+
+    h1 span { color: #dc2626; }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: #666;
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #fff;
+      margin-top: 48px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #222;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      margin-top: 32px;
+      margin-bottom: 12px;
+    }
+
+    p { margin-bottom: 16px; }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: #111;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #22c55e;
+    }
+
+    pre {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 16px 0;
+      position: relative;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: #e0e0e0;
+    }
+
+    .highlight { color: #dc2626; }
+    .comment { color: #555; }
+    .string { color: #22c55e; }
+    .keyword { color: #0ea5e9; }
+
+    ul, ol {
+      margin: 16px 0;
+      padding-left: 24px;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .feature-card {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .feature-card h4 {
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-card p {
+      color: #666;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .install-box {
+      background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 0.05));
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+      text-align: center;
+    }
+
+    .install-box code {
+      background: rgba(220, 38, 38, 0.2);
+      color: #fff;
+      font-size: 1.1rem;
+      padding: 12px 24px;
+      display: inline-block;
+      border-radius: 8px;
+    }
+
+    .toc {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+
+    .toc h4 {
+      color: #fff;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toc ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .toc li {
+      margin-bottom: 6px;
+    }
+
+    .toc a {
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .toc a:hover { color: #dc2626; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #222;
+    }
+
+    th {
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td { color: #888; }
+
+    td code {
+      font-size: 0.85rem;
+    }
+
+    .callout {
+      background: rgba(14, 165, 233, 0.1);
+      border-left: 3px solid #0ea5e9;
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+
+    .callout.warning {
+      background: rgba(245, 158, 11, 0.1);
+      border-left-color: #f59e0b;
+    }
+
+    .callout p { margin: 0; }
+
+    .footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #222;
+      text-align: center;
+      color: #555;
+      font-size: 0.85rem;
+    }
+
+    .footer a { color: #888; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <a href="index.html" class="logo-section">
+        <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
+        <span class="logo-text">Hyve</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="docs.html">Docs</a>
+        <a href="https://github.com/eladkishon/hyve">GitHub</a>
+      </nav>
+    </header>
+
+    <h1>Hyve <span>Documentation</span></h1>
+    <p class="subtitle">Complete guide to setting up isolated workspaces for AI agents</p>
+
+    <div class="install-box">
+      <code>npm install -g hyve-cli</code>
+    </div>
+
+    <nav class="toc">
+      <h4>Contents</h4>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="#quick-start">Quick Start</a></li>
+        <li><a href="#configuration">Configuration</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#port-isolation">Port Isolation</a></li>
+        <li><a href="#database-cloning">Database Cloning</a></li>
+        <li><a href="#ai-agents">Using with AI Agents</a></li>
+      </ul>
+    </nav>
+
+    <h2 id="overview">Overview</h2>
+    <p>Hyve creates isolated workspaces for AI coding agents. Each workspace gets its own git branch, database clone, and unique ports - so you can run multiple agents in parallel without conflicts.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h4>Git Worktrees</h4>
+        <p>Each workspace is a separate git worktree with its own branch. Changes stay isolated until you're ready to merge.</p>
+      </div>
+      <div class="feature-card">
+        <h4>Database Cloning</h4>
+        <p>Instant PostgreSQL snapshots using Docker. Each workspace gets a fresh copy of your database on a unique port.</p>
+      </div>
+      <div class="feature-card">
+        <h4>Port Isolation</h4>
+        <p>Services get unique ports per workspace. Run multiple dev servers simultaneously without conflicts.</p>
+      </div>
+      <div class="feature-card">
+        <h4>Agent Ready</h4>
+        <p>Works with Claude, Cursor, Aider, and any AI agent. Just point them at the workspace directory.</p>
+      </div>
+    </div>
+
+    <h2 id="installation">Installation</h2>
+    <p>Install Hyve globally using npm:</p>
+    <pre><code>npm install -g hyve-cli</code></pre>
+
+    <h3>Requirements</h3>
+    <ul>
+      <li>Node.js 18+</li>
+      <li>Git 2.30+</li>
+      <li>Docker (for database cloning)</li>
+      <li>pnpm (or npm/yarn)</li>
+    </ul>
+
+    <h2 id="quick-start">Quick Start</h2>
+
+    <h3>1. Initialize Hyve in your project</h3>
+    <pre><code>cd your-monorepo
+hyve init</code></pre>
+    <p>This creates a <code>.hyve.yaml</code> configuration file with default settings.</p>
+
+    <h3>2. Create a workspace</h3>
+    <pre><code><span class="comment"># Create workspace with specific repos</span>
+hyve create auth-feature server webapp
+
+<span class="comment"># Create from a specific branch</span>
+hyve create billing-api --from feature/stripe server</code></pre>
+
+    <h3>3. Start services</h3>
+    <pre><code>hyve run auth-feature</code></pre>
+    <p>This starts all configured services on workspace-specific ports.</p>
+
+    <h3>4. Point your AI agent at the workspace</h3>
+    <pre><code><span class="comment"># Claude Code</span>
+claude-code --cwd ~/workspaces/auth-feature
+
+<span class="comment"># Cursor</span>
+cursor ~/workspaces/auth-feature
+
+<span class="comment"># Aider</span>
+cd ~/workspaces/auth-feature && aider</code></pre>
+
+    <h2 id="configuration">Configuration</h2>
+    <p>Hyve is configured via <code>.hyve.yaml</code> in your project root:</p>
+
+    <pre><code><span class="keyword">main_repo</span>: <span class="string">.</span>
+<span class="keyword">repos</span>:
+  <span class="highlight">server</span>:
+    <span class="keyword">path</span>: <span class="string">./server</span>
+    <span class="keyword">setup</span>: <span class="string">pnpm install</span>
+  <span class="highlight">webapp</span>:
+    <span class="keyword">path</span>: <span class="string">./webapp</span>
+    <span class="keyword">setup</span>: <span class="string">pnpm install</span>
+
+<span class="keyword">required_repos</span>:
+  - server
+
+<span class="keyword">database</span>:
+  <span class="keyword">source_container</span>: <span class="string">postgres-main</span>
+  <span class="keyword">base_port</span>: <span class="string">5500</span>
+
+<span class="keyword">services</span>:
+  <span class="keyword">base_port</span>: <span class="string">4000</span>
+  <span class="keyword">port_offset</span>: <span class="string">1000</span>
+  <span class="keyword">definitions</span>:
+    <span class="highlight">server</span>:
+      <span class="keyword">default_port</span>: <span class="string">3000</span>
+      <span class="keyword">dev_command</span>: <span class="string">pnpm dev</span>
+      <span class="keyword">env_var</span>: <span class="string">PORT</span>
+    <span class="highlight">webapp</span>:
+      <span class="keyword">default_port</span>: <span class="string">3001</span>
+      <span class="keyword">dev_command</span>: <span class="string">pnpm dev</span></code></pre>
+
+    <h3>Configuration Options</h3>
+    <table>
+      <tr>
+        <th>Option</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+      <tr>
+        <td><code>main_repo</code></td>
+        <td>Path to the main repository</td>
+        <td><code>.</code></td>
+      </tr>
+      <tr>
+        <td><code>repos</code></td>
+        <td>Map of repository definitions</td>
+        <td>-</td>
+      </tr>
+      <tr>
+        <td><code>required_repos</code></td>
+        <td>Repos always included in workspaces</td>
+        <td><code>[]</code></td>
+      </tr>
+      <tr>
+        <td><code>services.base_port</code></td>
+        <td>Starting port for workspace 0</td>
+        <td><code>4000</code></td>
+      </tr>
+      <tr>
+        <td><code>services.port_offset</code></td>
+        <td>Port increment between workspaces</td>
+        <td><code>1000</code></td>
+      </tr>
+      <tr>
+        <td><code>database.source_container</code></td>
+        <td>Docker container to clone from</td>
+        <td>-</td>
+      </tr>
+    </table>
+
+    <h2 id="commands">Commands</h2>
+
+    <h3>hyve init</h3>
+    <p>Initialize Hyve in the current directory.</p>
+    <pre><code>hyve init</code></pre>
+
+    <h3>hyve create</h3>
+    <p>Create a new isolated workspace.</p>
+    <pre><code>hyve create &lt;name&gt; [repos...] [options]
+
+<span class="comment"># Options:</span>
+  --from &lt;branch&gt;    Base branch for the worktree
+  --no-db            Skip database cloning</code></pre>
+
+    <h3>hyve run</h3>
+    <p>Start all services in a workspace.</p>
+    <pre><code>hyve run &lt;workspace&gt;</code></pre>
+
+    <h3>hyve stop</h3>
+    <p>Stop all services in a workspace.</p>
+    <pre><code>hyve stop &lt;workspace&gt;</code></pre>
+
+    <h3>hyve list</h3>
+    <p>List all workspaces and their status.</p>
+    <pre><code>hyve list</code></pre>
+
+    <h3>hyve attach</h3>
+    <p>Attach a new repo/service to an existing workspace.</p>
+    <pre><code>hyve attach &lt;workspace&gt; [repos...]
+
+<span class="comment"># Options:</span>
+  --no-setup    Skip running setup scripts
+
+<span class="comment"># Examples:</span>
+hyve attach auth-feature webapp      <span class="comment"># Add webapp to existing workspace</span>
+hyve attach billing-api              <span class="comment"># Interactive repo selection</span></code></pre>
+
+    <h3>hyve cleanup</h3>
+    <p>Remove a workspace and its resources.</p>
+    <pre><code>hyve cleanup &lt;workspace&gt;
+
+<span class="comment"># Options:</span>
+  --keep-branch    Don't delete the git branch
+  --keep-db        Don't remove the database container</code></pre>
+
+    <h2 id="port-isolation">Port Isolation</h2>
+    <p>Each workspace gets unique ports calculated from the base configuration:</p>
+
+    <pre><code>workspace_base = base_port + (workspace_index * port_offset)
+service_port = workspace_base + (service_default_port - 3000)</code></pre>
+
+    <p><strong>Example:</strong> With <code>base_port: 4000</code> and <code>port_offset: 1000</code>:</p>
+    <table>
+      <tr>
+        <th>Workspace</th>
+        <th>Server (3000)</th>
+        <th>Webapp (3001)</th>
+        <th>API (3002)</th>
+      </tr>
+      <tr>
+        <td>workspace-0</td>
+        <td><code>:4000</code></td>
+        <td><code>:4001</code></td>
+        <td><code>:4002</code></td>
+      </tr>
+      <tr>
+        <td>workspace-1</td>
+        <td><code>:5000</code></td>
+        <td><code>:5001</code></td>
+        <td><code>:5002</code></td>
+      </tr>
+      <tr>
+        <td>workspace-2</td>
+        <td><code>:6000</code></td>
+        <td><code>:6001</code></td>
+        <td><code>:6002</code></td>
+      </tr>
+    </table>
+
+    <h2 id="database-cloning">Database Cloning</h2>
+    <p>Hyve clones your PostgreSQL database using Docker:</p>
+
+    <pre><code><span class="comment"># Your main database runs in a container</span>
+docker run -d --name postgres-main -p 5432:5432 postgres
+
+<span class="comment"># Hyve clones it for each workspace</span>
+hyve create my-feature server
+<span class="comment"># Creates container: postgres-hyve-my-feature on port 5500</span></code></pre>
+
+    <div class="callout">
+      <p><strong>Note:</strong> Database cloning requires your source database to be running in a Docker container. Hyve uses <code>docker exec</code> to create dumps and restore them to new containers.</p>
+    </div>
+
+    <h2 id="ai-agents">Using with AI Agents</h2>
+
+    <h3>Claude Code</h3>
+    <pre><code><span class="comment"># Create workspace and start services</span>
+hyve create payment-flow server webapp
+hyve run payment-flow
+
+<span class="comment"># Launch Claude in the workspace</span>
+cd ~/workspaces/payment-flow
+claude
+
+<span class="comment"># Or specify the working directory</span>
+claude --cwd ~/workspaces/payment-flow</code></pre>
+
+    <h3>Cursor</h3>
+    <pre><code><span class="comment"># Open workspace in Cursor</span>
+cursor ~/workspaces/payment-flow</code></pre>
+
+    <h3>Aider</h3>
+    <pre><code>cd ~/workspaces/payment-flow
+aider --model claude-3-opus</code></pre>
+
+    <h3>Running Multiple Agents in Parallel</h3>
+    <pre><code><span class="comment"># Terminal 1: Claude working on auth</span>
+hyve create auth-feature server
+hyve run auth-feature
+claude --cwd ~/workspaces/auth-feature
+
+<span class="comment"># Terminal 2: Cursor working on billing</span>
+hyve create billing-api server
+hyve run billing-api
+cursor ~/workspaces/billing-api
+
+<span class="comment"># Terminal 3: Aider working on UI</span>
+hyve create ui-refactor webapp
+hyve run ui-refactor
+cd ~/workspaces/ui-refactor && aider</code></pre>
+
+    <div class="callout warning">
+      <p><strong>Tip:</strong> Each workspace uses unique ports, so all three agents can run full dev environments simultaneously without conflicts.</p>
+    </div>
+
+    <footer class="footer">
+      <p>Made by <a href="https://github.com/eladkishon">@eladkishon</a> | <a href="https://github.com/eladkishon/hyve">GitHub</a> | <a href="https://ko-fi.com/eladkishon">Support</a></p>
+    </footer>
+  </div>
+</body>
+</html>

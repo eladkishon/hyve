@@ -6,527 +6,778 @@
   <title>Hyve - Workspaces for AI Agents</title>
   <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       font-family: 'Space Grotesk', sans-serif;
       background: #000;
       color: #fff;
-      min-height: 100vh;
-      overflow-x: hidden;
     }
 
-    .page {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      position: relative;
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
     }
 
-    .grid-bg {
+    .overlay {
       position: fixed;
       inset: 0;
-      background-image:
-        linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
       pointer-events: none;
     }
 
     .header {
-      width: 100%;
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 30px;
+      pointer-events: auto;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo { width: 40px; height: 40px; }
+
+    .logo-text {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .nav {
+      display: flex;
       gap: 10px;
-      margin-bottom: 20px;
-      position: relative;
-      z-index: 10;
     }
 
     .btn {
-      padding: 8px 14px;
+      padding: 8px 16px;
       border-radius: 6px;
       font-weight: 600;
       text-decoration: none;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       transition: all 0.2s;
       font-family: 'Space Grotesk', sans-serif;
+      border: none;
+      cursor: pointer;
     }
 
+    .btn-ghost {
+      background: rgba(255,255,255,0.05);
+      color: #888;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-ghost:hover { color: #fff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); }
     .btn-red { background: #dc2626; color: #fff; }
     .btn-red:hover { background: #ef4444; }
-    .btn-ghost { background: transparent; color: #666; border: 1px solid #333; }
-    .btn-ghost:hover { color: #fff; border-color: #555; }
     .btn-star:hover { color: #fbbf24; border-color: #fbbf24; }
 
-    .hero {
+    .center-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       text-align: center;
+      padding: 20px;
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 16px;
+      letter-spacing: -2px;
+    }
+
+    .hero-title span { color: #dc2626; }
+
+    .hero-desc {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #666;
+      max-width: 600px;
       margin-bottom: 30px;
     }
 
-    .logo { width: 100px; margin-bottom: 12px; }
-
-    .tagline {
-      font-size: 2rem;
-      font-weight: 700;
-      line-height: 1.1;
-      margin-bottom: 10px;
-    }
-
-    .tagline span { color: #dc2626; }
-
-    .desc {
-      color: #666;
-      font-size: 0.9rem;
-      max-width: 500px;
-      margin: 0 auto;
-    }
-
-    /* Main visualization */
-    .viz-container {
-      width: 100%;
-      max-width: 900px;
-      position: relative;
-    }
-
-    .main-branch {
-      background: linear-gradient(90deg, #333 0%, #dc2626 50%, #333 100%);
-      height: 3px;
-      width: 100%;
-      margin: 30px 0;
-      position: relative;
-    }
-
-    .main-label {
-      position: absolute;
-      left: 50%;
-      top: -20px;
-      transform: translateX(-50%);
-      background: #dc2626;
-      padding: 2px 10px;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-
-    .workspaces {
+    .cta-section {
       display: flex;
+      flex-direction: column;
+      align-items: center;
       gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
+      pointer-events: auto;
     }
 
-    .workspace {
-      background: #0a0a0a;
-      border: 1px solid #222;
-      border-radius: 12px;
-      width: 280px;
-      overflow: hidden;
-      position: relative;
-      transition: all 0.3s;
-    }
-
-    .workspace.active {
-      border-color: #dc2626;
-      box-shadow: 0 0 30px rgba(220, 38, 38, 0.2);
-    }
-
-    .workspace-header {
-      background: #111;
-      padding: 10px 14px;
-      border-bottom: 1px solid #222;
+    .install-cmd {
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid rgba(220, 38, 38, 0.4);
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .workspace-name {
-      font-weight: 600;
+    .install-cmd:hover {
+      background: rgba(220, 38, 38, 0.25);
+      border-color: #dc2626;
+    }
+
+    .install-cmd .copy-icon {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    .install-cmd:hover .copy-icon { opacity: 1; }
+
+    .docs-link {
+      color: #666;
       font-size: 0.85rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .docs-link:hover { color: #dc2626; }
+
+    .legend {
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.main { background: #dc2626; }
+    .legend-dot.claude { background: #dc2626; box-shadow: 0 0 10px #dc2626; }
+    .legend-dot.cursor { background: #0ea5e9; box-shadow: 0 0 10px #0ea5e9; }
+    .legend-dot.aider { background: #8b5cf6; box-shadow: 0 0 10px #8b5cf6; }
+    .legend-dot.db { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+
+    .stats {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 20;
+      display: flex;
+      gap: 20px;
+      pointer-events: auto;
+    }
+
+    .stat {
+      text-align: right;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: #555;
+      text-transform: uppercase;
+    }
+
+    .stat-value.red { color: #dc2626; }
+    .stat-value.green { color: #22c55e; }
+    .stat-value.blue { color: #0ea5e9; }
+
+    /* Activity feed */
+    .activity-feed {
+      position: fixed;
+      top: 80px;
+      right: 30px;
+      z-index: 20;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .activity-item {
+      background: rgba(0,0,0,0.8);
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
       display: flex;
       align-items: center;
       gap: 8px;
+      animation: slideIn 0.3s ease-out;
+      opacity: 0;
+      transform: translateX(20px);
     }
 
-    .workspace-name .icon {
-      font-size: 1rem;
+    .activity-item.visible {
+      opacity: 1;
+      transform: translateX(0);
     }
 
-    .agent-badge {
-      background: #dc2626;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.65rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+    .activity-item.fade-out {
+      opacity: 0;
+      transform: translateX(-20px);
+      transition: all 0.3s ease-out;
     }
 
-    .agent-badge.cursor { background: #0ea5e9; }
-    .agent-badge.aider { background: #8b5cf6; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
 
-    .pulse {
-      width: 6px;
-      height: 6px;
-      background: #fff;
+    .activity-dot {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      animation: pulse 1.5s infinite;
+      flex-shrink: 0;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .workspace-body {
-      padding: 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.65rem;
-    }
-
-    .ws-section {
-      margin-bottom: 10px;
-    }
-
-    .ws-section:last-child {
-      margin-bottom: 0;
-    }
-
-    .ws-section-title {
-      color: #555;
-      font-size: 0.6rem;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-      font-family: 'Space Grotesk', sans-serif;
-    }
-
-    .ws-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
+    .activity-text {
       color: #888;
-    }
-
-    .ws-row .label { color: #666; }
-    .ws-row .value { color: #22c55e; }
-    .ws-row .value.branch { color: #f59e0b; }
-
-    .ws-activity {
-      background: #111;
-      border-radius: 6px;
-      padding: 8px;
-      margin-top: 8px;
-    }
-
-    .activity-line {
-      color: #555;
-      margin-bottom: 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .activity-line.current {
-      color: #22c55e;
-    }
+    .activity-text .file { color: #22c55e; }
+    .activity-text .cmd { color: #f59e0b; }
 
-    /* Features */
-    .features {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 30px;
-    }
-
-    .feature {
-      background: rgba(220, 38, 38, 0.1);
-      border: 1px solid rgba(220, 38, 38, 0.3);
-      border-radius: 8px;
-      padding: 12px 16px;
-      text-align: center;
-      width: 140px;
-    }
-
-    .feature-icon {
-      font-size: 1.5rem;
-      margin-bottom: 6px;
-    }
-
-    .feature-title {
-      font-weight: 600;
-      font-size: 0.8rem;
-      margin-bottom: 2px;
-    }
-
-    .feature-desc {
-      color: #666;
-      font-size: 0.65rem;
-    }
-
-    /* How it works */
-    .how-it-works {
-      margin-top: 30px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-width: 600px;
-    }
-
-    .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      background: #0a0a0a;
-      border: 1px solid #222;
-      border-radius: 8px;
-      padding: 14px 18px;
-    }
-
-    .step-num {
-      background: #dc2626;
-      color: #fff;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
+    /* Keyboard hint */
+    .keyboard-hint {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      font-size: 0.7rem;
+      color: #444;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      flex-shrink: 0;
+      gap: 8px;
     }
 
-    .step-content {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .step-content code {
+    .key {
+      background: #111;
+      border: 1px solid #333;
+      padding: 4px 8px;
+      border-radius: 4px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      color: #fff;
     }
 
-    .step-desc {
-      color: #666;
-      font-size: 0.75rem;
-    }
-
-    .cta {
-      margin-top: 30px;
-      text-align: center;
-    }
-
-    .cta code {
-      background: #dc2626;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #fff;
-      display: inline-block;
+    @media (max-width: 768px) {
+      .activity-feed, .stats, .legend, .keyboard-hint { display: none; }
+      .header { padding: 15px 20px; }
+      .nav { gap: 6px; }
+      .btn { padding: 6px 12px; font-size: 0.7rem; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="grid-bg"></div>
+  <canvas id="canvas"></canvas>
 
+  <div class="overlay">
     <div class="header">
-      <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
-      <a href="https://ko-fi.com/eladkishon" class="btn btn-ghost">☕ Support</a>
-      <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">★ Star</a>
-      <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
+      <div class="logo-section">
+        <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
+        <span class="logo-text">Hyve</span>
+      </div>
+      <nav class="nav">
+        <a href="docs.html" class="btn btn-ghost">Docs</a>
+        <a href="https://github.com/eladkishon" class="btn btn-ghost">@eladkishon</a>
+        <a href="https://github.com/eladkishon/hyve" class="btn btn-ghost btn-star">Star</a>
+        <a href="https://github.com/eladkishon/hyve" class="btn btn-red">GitHub</a>
+      </nav>
     </div>
 
-    <div class="hero">
-      <img src="https://raw.githubusercontent.com/eladkishon/hyve/main/assets/logo.png" alt="Hyve" class="logo">
-      <h1 class="tagline">Workspaces for <span>AI Agents</span></h1>
-      <p class="desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. Zero conflicts.</p>
-    </div>
-
-    <!-- Main visualization -->
-    <div class="viz-container">
-      <div class="main-branch">
-        <span class="main-label">main</span>
-      </div>
-
-      <div class="workspaces">
-        <div class="workspace active" id="ws1">
-          <div class="workspace-header">
-            <div class="workspace-name">
-              <span class="icon">📁</span> auth-feature
-            </div>
-            <div class="agent-badge">
-              <div class="pulse"></div>
-              Claude
-            </div>
-          </div>
-          <div class="workspace-body">
-            <div class="ws-section">
-              <div class="ws-section-title">Git Branch</div>
-              <div class="ws-row">
-                <span class="label">branch</span>
-                <span class="value branch">feature/auth-feature</span>
-              </div>
-            </div>
-            <div class="ws-section">
-              <div class="ws-section-title">Services</div>
-              <div class="ws-row"><span class="label">server</span><span class="value">:4000</span></div>
-              <div class="ws-row"><span class="label">webapp</span><span class="value">:4001</span></div>
-              <div class="ws-row"><span class="label">postgres</span><span class="value">:5500</span></div>
-            </div>
-            <div class="ws-activity">
-              <div class="activity-line dim">Adding JWT middleware...</div>
-              <div class="activity-line current">✓ Created auth.controller.ts</div>
-            </div>
-          </div>
+    <div class="center-content">
+      <h1 class="hero-title">Workspaces for<br><span>AI Agents</span></h1>
+      <p class="hero-desc">Run multiple AI agents in parallel. Each gets isolated git branches, databases, and ports. Zero conflicts.</p>
+      <div class="cta-section">
+        <div class="install-cmd" onclick="copyInstall()">
+          <span>npm install -g hyve-cli</span>
+          <span class="copy-icon">📋</span>
         </div>
-
-        <div class="workspace active" id="ws2">
-          <div class="workspace-header">
-            <div class="workspace-name">
-              <span class="icon">📁</span> billing-api
-            </div>
-            <div class="agent-badge cursor">
-              <div class="pulse"></div>
-              Cursor
-            </div>
-          </div>
-          <div class="workspace-body">
-            <div class="ws-section">
-              <div class="ws-section-title">Git Branch</div>
-              <div class="ws-row">
-                <span class="label">branch</span>
-                <span class="value branch">feature/billing-api</span>
-              </div>
-            </div>
-            <div class="ws-section">
-              <div class="ws-section-title">Services</div>
-              <div class="ws-row"><span class="label">server</span><span class="value">:5000</span></div>
-              <div class="ws-row"><span class="label">webapp</span><span class="value">:5001</span></div>
-              <div class="ws-row"><span class="label">postgres</span><span class="value">:5501</span></div>
-            </div>
-            <div class="ws-activity">
-              <div class="activity-line dim">Running migrations...</div>
-              <div class="activity-line current">✓ Added invoices table</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="workspace active" id="ws3">
-          <div class="workspace-header">
-            <div class="workspace-name">
-              <span class="icon">📁</span> ui-refactor
-            </div>
-            <div class="agent-badge aider">
-              <div class="pulse"></div>
-              Aider
-            </div>
-          </div>
-          <div class="workspace-body">
-            <div class="ws-section">
-              <div class="ws-section-title">Git Branch</div>
-              <div class="ws-row">
-                <span class="label">branch</span>
-                <span class="value branch">feature/ui-refactor</span>
-              </div>
-            </div>
-            <div class="ws-section">
-              <div class="ws-section-title">Services</div>
-              <div class="ws-row"><span class="label">server</span><span class="value">:6000</span></div>
-              <div class="ws-row"><span class="label">webapp</span><span class="value">:6001</span></div>
-              <div class="ws-row"><span class="label">postgres</span><span class="value">:5502</span></div>
-            </div>
-            <div class="ws-activity">
-              <div class="activity-line dim">Updating components...</div>
-              <div class="activity-line current">✓ Refactored Dashboard.tsx</div>
-            </div>
-          </div>
-        </div>
+        <a href="docs.html" class="docs-link">Read the docs →</a>
       </div>
-    </div>
-
-    <!-- Features -->
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🌿</div>
-        <div class="feature-title">Git Worktrees</div>
-        <div class="feature-desc">Each workspace gets its own branch</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🗄️</div>
-        <div class="feature-title">Database Clone</div>
-        <div class="feature-desc">Instant PostgreSQL snapshots</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🔌</div>
-        <div class="feature-title">Port Isolation</div>
-        <div class="feature-desc">No conflicts between services</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🤖</div>
-        <div class="feature-title">Agent Ready</div>
-        <div class="feature-desc">Claude, Cursor, Aider compatible</div>
-      </div>
-    </div>
-
-    <!-- How it works -->
-    <div class="how-it-works">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-content">
-          <code>hyve create auth-feature server webapp</code>
-          <span class="step-desc">Creates isolated workspace with git branch + cloned database</span>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <code>hyve run auth-feature</code>
-          <span class="step-desc">Starts all services on unique ports (no conflicts)</span>
-        </div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-content">
-          <code>claude-code --cwd ~/workspaces/auth-feature</code>
-          <span class="step-desc">Point any AI agent at the workspace - it's fully isolated</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="cta">
-      <code>npm install -g hyve-cli</code>
     </div>
   </div>
 
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot main"></div> Main Branch</div>
+    <div class="legend-item"><div class="legend-dot claude"></div> Claude Agent</div>
+    <div class="legend-item"><div class="legend-dot cursor"></div> Cursor Agent</div>
+    <div class="legend-item"><div class="legend-dot aider"></div> Aider Agent</div>
+    <div class="legend-item"><div class="legend-dot db"></div> Database</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value red" id="workspaces-count">3</div>
+      <div class="stat-label">Active Workspaces</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value green" id="commits-count">0</div>
+      <div class="stat-label">Commits</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value blue" id="files-count">0</div>
+      <div class="stat-label">Files Changed</div>
+    </div>
+  </div>
+
+  <div class="activity-feed" id="activity-feed"></div>
+
+  <div class="keyboard-hint">
+    <span class="key">Space</span> Toggle animation
+    <span class="key">R</span> Reset
+  </div>
+
   <script>
-    // Animate activities
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
+    let paused = false;
+    let time = 0;
+    let commits = 0;
+    let filesChanged = 0;
+
+    // Colors
+    const COLORS = {
+      main: '#dc2626',
+      claude: '#dc2626',
+      cursor: '#0ea5e9',
+      aider: '#8b5cf6',
+      db: '#22c55e',
+      grid: 'rgba(220, 38, 38, 0.03)',
+      line: 'rgba(255,255,255,0.03)'
+    };
+
+    // Nodes in the system
+    const nodes = [];
+    const particles = [];
+    const connections = [];
+
+    class Node {
+      constructor(type, label, x, y, color) {
+        this.type = type;
+        this.label = label;
+        this.x = x;
+        this.y = y;
+        this.targetX = x;
+        this.targetY = y;
+        this.color = color;
+        this.radius = type === 'main' ? 12 : type === 'workspace' ? 35 : 20;
+        this.pulse = 0;
+        this.activity = 0;
+        this.children = [];
+      }
+
+      update() {
+        this.x += (this.targetX - this.x) * 0.05;
+        this.y += (this.targetY - this.y) * 0.05;
+        this.pulse = (Math.sin(time * 0.05 + this.x * 0.01) + 1) * 0.5;
+        this.activity *= 0.98;
+      }
+
+      draw() {
+        ctx.save();
+
+        // Glow effect
+        const glowRadius = this.radius + 20 + this.pulse * 10 + this.activity * 30;
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
+        gradient.addColorStop(0, this.color + '40');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.type === 'workspace') {
+          // Workspace box
+          const boxSize = this.radius * 2;
+          ctx.fillStyle = '#0a0a0a';
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = 2;
+          roundRect(ctx, this.x - boxSize, this.y - boxSize * 0.7, boxSize * 2, boxSize * 1.4, 8);
+          ctx.fill();
+          ctx.stroke();
+
+          // Header
+          ctx.fillStyle = '#111';
+          roundRect(ctx, this.x - boxSize + 2, this.y - boxSize * 0.7 + 2, boxSize * 2 - 4, 20, [6, 6, 0, 0]);
+          ctx.fill();
+
+          // Label
+          ctx.fillStyle = '#fff';
+          ctx.font = '600 11px Space Grotesk';
+          ctx.textAlign = 'center';
+          ctx.fillText(this.label, this.x, this.y - boxSize * 0.7 + 14);
+
+          // Activity indicator
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x + boxSize - 12, this.y - boxSize * 0.7 + 12, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Port info
+          ctx.fillStyle = '#555';
+          ctx.font = '500 9px JetBrains Mono';
+          ctx.fillText('server :' + (4000 + nodes.indexOf(this) * 1000), this.x, this.y);
+          ctx.fillText('db :' + (5500 + nodes.indexOf(this)), this.x, this.y + 14);
+
+        } else if (this.type === 'main') {
+          // Main branch node
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fff';
+          ctx.font = '600 10px Space Grotesk';
+          ctx.textAlign = 'center';
+          ctx.fillText('main', this.x, this.y + 30);
+
+        } else {
+          // Service node (db, etc)
+          ctx.fillStyle = '#0a0a0a';
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = this.color;
+          ctx.font = '500 8px JetBrains Mono';
+          ctx.textAlign = 'center';
+          ctx.fillText(this.label, this.x, this.y + 4);
+        }
+
+        ctx.restore();
+      }
+
+      trigger() {
+        this.activity = 1;
+      }
+    }
+
+    class Particle {
+      constructor(fromNode, toNode, color) {
+        this.fromNode = fromNode;
+        this.toNode = toNode;
+        this.color = color;
+        this.progress = 0;
+        this.speed = 0.01 + Math.random() * 0.02;
+        this.size = 3 + Math.random() * 2;
+      }
+
+      update() {
+        this.progress += this.speed;
+        if (this.progress >= 1) {
+          this.toNode.trigger();
+          return true; // Remove particle
+        }
+        return false;
+      }
+
+      draw() {
+        const x = this.fromNode.x + (this.toNode.x - this.fromNode.x) * this.progress;
+        const y = this.fromNode.y + (this.toNode.y - this.fromNode.y) * this.progress;
+
+        // Trail
+        ctx.save();
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, 20);
+        gradient.addColorStop(0, this.color + 'aa');
+        gradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(x, y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class Connection {
+      constructor(from, to, color) {
+        this.from = from;
+        this.to = to;
+        this.color = color;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.strokeStyle = this.color + '30';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(this.from.x, this.from.y);
+
+        // Curved connection
+        const midX = (this.from.x + this.to.x) / 2;
+        const midY = (this.from.y + this.to.y) / 2 - 50;
+        ctx.quadraticCurveTo(midX, midY, this.to.x, this.to.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+      if (typeof radius === 'number') {
+        radius = [radius, radius, radius, radius];
+      }
+      ctx.beginPath();
+      ctx.moveTo(x + radius[0], y);
+      ctx.lineTo(x + width - radius[1], y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius[1]);
+      ctx.lineTo(x + width, y + height - radius[2]);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius[2], y + height);
+      ctx.lineTo(x + radius[3], y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius[3]);
+      ctx.lineTo(x, y + radius[0]);
+      ctx.quadraticCurveTo(x, y, x + radius[0], y);
+      ctx.closePath();
+    }
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      initNodes();
+    }
+
+    function initNodes() {
+      nodes.length = 0;
+      connections.length = 0;
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      // Main branch (center line)
+      const mainNode = new Node('main', 'main', centerX, centerY + 50, COLORS.main);
+      nodes.push(mainNode);
+
+      // Workspaces branching off
+      const workspaceData = [
+        { label: 'auth-feature', color: COLORS.claude, agent: 'Claude' },
+        { label: 'billing-api', color: COLORS.cursor, agent: 'Cursor' },
+        { label: 'ui-refactor', color: COLORS.aider, agent: 'Aider' }
+      ];
+
+      const spacing = Math.min(300, (width - 200) / 3);
+      workspaceData.forEach((ws, i) => {
+        const x = centerX + (i - 1) * spacing;
+        const y = centerY - 120;
+        const wsNode = new Node('workspace', ws.label, x, y, ws.color);
+        wsNode.agent = ws.agent;
+        nodes.push(wsNode);
+        connections.push(new Connection(mainNode, wsNode, ws.color));
+
+        // Database node for each workspace
+        const dbNode = new Node('service', 'postgres', x + 60, y + 60, COLORS.db);
+        nodes.push(dbNode);
+        connections.push(new Connection(wsNode, dbNode, COLORS.db));
+      });
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.strokeStyle = COLORS.line;
+      ctx.lineWidth = 1;
+
+      const gridSize = 80;
+      const offsetX = (time * 0.2) % gridSize;
+
+      for (let x = -gridSize + offsetX; x < width + gridSize; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawMainBranch() {
+      ctx.save();
+      const mainNode = nodes[0];
+      const gradient = ctx.createLinearGradient(0, mainNode.y, width, mainNode.y);
+      gradient.addColorStop(0, 'transparent');
+      gradient.addColorStop(0.3, COLORS.main + '60');
+      gradient.addColorStop(0.5, COLORS.main);
+      gradient.addColorStop(0.7, COLORS.main + '60');
+      gradient.addColorStop(1, 'transparent');
+
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, mainNode.y);
+      ctx.lineTo(width, mainNode.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Activity feed
     const activities = [
-      ['Adding JWT middleware...', '✓ Created auth.controller.ts', '✓ Updated routes.ts', 'Running tests...'],
-      ['Running migrations...', '✓ Added invoices table', '✓ Created billing.service.ts', 'Generating types...'],
-      ['Updating components...', '✓ Refactored Dashboard.tsx', '✓ Added dark mode', 'Building...']
+      { agent: 'Claude', text: 'Created <span class="file">auth.controller.ts</span>', color: COLORS.claude },
+      { agent: 'Cursor', text: 'Running <span class="cmd">pnpm test</span>', color: COLORS.cursor },
+      { agent: 'Aider', text: 'Refactored <span class="file">Dashboard.tsx</span>', color: COLORS.aider },
+      { agent: 'Claude', text: 'Added JWT middleware', color: COLORS.claude },
+      { agent: 'Cursor', text: 'Created <span class="file">billing.service.ts</span>', color: COLORS.cursor },
+      { agent: 'Aider', text: 'Running <span class="cmd">migrations</span>', color: COLORS.aider },
+      { agent: 'Claude', text: 'Updated <span class="file">routes.ts</span>', color: COLORS.claude },
+      { agent: 'Cursor', text: 'Added invoices table', color: COLORS.cursor },
+      { agent: 'Aider', text: 'Created <span class="file">ThemeProvider.tsx</span>', color: COLORS.aider },
     ];
 
-    let indices = [0, 0, 0];
+    let activityIndex = 0;
+    const feedEl = document.getElementById('activity-feed');
 
-    setInterval(() => {
-      document.querySelectorAll('.workspace').forEach((ws, i) => {
-        const activityLines = ws.querySelectorAll('.activity-line');
-        indices[i] = (indices[i] + 1) % activities[i].length;
-        activityLines[0].textContent = activities[i][indices[i]];
-        activityLines[1].textContent = activities[i][(indices[i] + 1) % activities[i].length];
-      });
-    }, 2500);
+    function addActivity() {
+      const activity = activities[activityIndex % activities.length];
+      activityIndex++;
+
+      const item = document.createElement('div');
+      item.className = 'activity-item';
+      item.innerHTML = `
+        <div class="activity-dot" style="background: ${activity.color}; box-shadow: 0 0 8px ${activity.color}"></div>
+        <div class="activity-text">${activity.text}</div>
+      `;
+
+      feedEl.insertBefore(item, feedEl.firstChild);
+
+      setTimeout(() => item.classList.add('visible'), 10);
+
+      // Remove old items
+      const items = feedEl.querySelectorAll('.activity-item');
+      if (items.length > 5) {
+        const oldItem = items[items.length - 1];
+        oldItem.classList.add('fade-out');
+        setTimeout(() => oldItem.remove(), 300);
+      }
+
+      // Update stats
+      filesChanged++;
+      if (Math.random() > 0.5) commits++;
+      document.getElementById('files-count').textContent = filesChanged;
+      document.getElementById('commits-count').textContent = commits;
+
+      // Spawn particle
+      const wsNodes = nodes.filter(n => n.type === 'workspace');
+      const wsNode = wsNodes[Math.floor(Math.random() * wsNodes.length)];
+      if (wsNode) {
+        particles.push(new Particle(nodes[0], wsNode, wsNode.color));
+      }
+    }
+
+    function animate() {
+      if (!paused) {
+        time++;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+
+        drawGrid();
+        drawMainBranch();
+
+        // Update and draw connections
+        connections.forEach(c => c.draw());
+
+        // Update and draw nodes
+        nodes.forEach(n => {
+          n.update();
+          n.draw();
+        });
+
+        // Update and draw particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          if (particles[i].update()) {
+            particles.splice(i, 1);
+          } else {
+            particles[i].draw();
+          }
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // Events
+    window.addEventListener('resize', resize);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        paused = !paused;
+      } else if (e.code === 'KeyR') {
+        commits = 0;
+        filesChanged = 0;
+        document.getElementById('files-count').textContent = 0;
+        document.getElementById('commits-count').textContent = 0;
+        feedEl.innerHTML = '';
+        activityIndex = 0;
+      }
+    });
+
+    function copyInstall() {
+      navigator.clipboard.writeText('npm install -g hyve-cli');
+      const cmd = document.querySelector('.install-cmd span:first-child');
+      const original = cmd.textContent;
+      cmd.textContent = 'Copied!';
+      setTimeout(() => cmd.textContent = original, 1500);
+    }
+
+    // Init
+    resize();
+    animate();
+
+    // Start activity feed
+    setInterval(addActivity, 2000);
+    setTimeout(addActivity, 500);
   </script>
 </body>
 </html>
