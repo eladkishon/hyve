@@ -567,7 +567,6 @@ ${envContent}`;
     join3(projectRoot, ".code-workspace"),
     join3(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`)
   ];
-  const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
   for (const vscodeFile of vscodeWorkspaceFiles) {
     if (existsSync3(vscodeFile)) {
       try {
@@ -577,13 +576,11 @@ ${envContent}`;
           let added = false;
           for (const repo of successfulRepos) {
             const folderPath = `${workspaceRelPath}/${repo}`;
-            const folderName = `[${featureId}] ${repo}`;
             const exists = vscodeContent.folders.some(
-              (f) => f.path === folderPath || f.name === folderName
+              (f) => f.path === folderPath
             );
             if (!exists) {
               vscodeContent.folders.push({
-                name: folderName,
                 path: folderPath
               });
               added = true;

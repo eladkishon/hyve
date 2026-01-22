@@ -528,9 +528,6 @@ export const createCommand = new Command("create")
       join(projectRoot, `${projectRoot.split("/").pop()}.code-workspace`),
     ];
 
-    // Extract short feature ID (e.g., "DEV-9387" from "dev-9387-fixes-for-portal")
-    const featureId = name.match(/^([a-z]+-\d+)/i)?.[1]?.toUpperCase() || name.slice(0, 12).toUpperCase();
-
     for (const vscodeFile of vscodeWorkspaceFiles) {
       if (existsSync(vscodeFile)) {
         try {
@@ -542,19 +539,16 @@ export const createCommand = new Command("create")
 
             for (const repo of successfulRepos) {
               const folderPath = `${workspaceRelPath}/${repo}`;
-              // Format: "[FEATURE-ID] repo" - e.g., "[DEV-9387] server" - sorts together
-              const folderName = `[${featureId}] ${repo}`;
 
               // Check if already exists
               const exists = vscodeContent.folders.some(
-                (f: { path?: string; name?: string }) =>
-                  f.path === folderPath || f.name === folderName
+                (f: { path?: string; name?: string }) => f.path === folderPath
               );
 
               if (!exists) {
                 // Add at the END of the list to group workspaces together
+                // Just use the path, no custom name needed
                 vscodeContent.folders.push({
-                  name: folderName,
                   path: folderPath,
                 });
                 added = true;
