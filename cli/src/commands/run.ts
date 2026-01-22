@@ -447,10 +447,17 @@ async function startService(
   if (serviceConfig.pre_run) {
     spinner.start(`Running pre-run for ${chalk.cyan(repo)}...`);
     try {
-      // Replace ${server_port} with actual server port from running services
+      // Replace ${server_port} with calculated server port (works even if server failed to start)
       let preRunCommand = serviceConfig.pre_run;
-      const serverPort = runningServices.get("server");
-      if (serverPort) {
+      const serverConfig = config.services.definitions["server"];
+      if (serverConfig) {
+        const serverPort = calculateServicePort(
+          "server",
+          serverConfig.default_port,
+          config.services.base_port,
+          workspaceIndex,
+          config.services.port_offset
+        );
         preRunCommand = preRunCommand.replace(/\$\{server_port\}/g, String(serverPort));
       }
 
@@ -539,13 +546,14 @@ async function startService(
 
 // File watcher for --watch mode
 async function startFileWatcher(
-  _workspaceName: string,
+  workspaceName: string,
   config: ReturnType<typeof loadConfig>,
   workspaceDir: string,
   runningServices: Map<string, number>
 ) {
   const serviceConfigs = config.services.definitions;
   const shellWrapper = config.services.shell_wrapper || "";
+  const workspaceIndex = getWorkspaceIndex(workspaceName);
 
   // Find services with watch_files config (trigger services)
   const triggerServices: Array<{
@@ -695,10 +703,17 @@ async function startFileWatcher(
       console.log(`  ${chalk.cyan("→")} Running pre_run for ${chalk.bold(dep.name)}...`);
 
       try {
-        // Replace ${server_port} with actual port
+        // Replace ${server_port} with calculated server port (works even if server failed)
         let preRunCmd = dep.preRun;
-        const serverPort = runningServices.get("server");
-        if (serverPort) {
+        const serverConfig = config.services.definitions["server"];
+        if (serverConfig) {
+          const serverPort = calculateServicePort(
+            "server",
+            serverConfig.default_port,
+            config.services.base_port,
+            workspaceIndex,
+            config.services.port_offset
+          );
           preRunCmd = preRunCmd.replace(/\$\{server_port\}/g, String(serverPort));
         }
 

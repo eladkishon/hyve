@@ -282,29 +282,59 @@ export const createCommand = new Command("create")
       process.exit(1);
     }
 
-    // Run setup scripts if not skipped
+    // Install dependencies for repos with package.json
     if (options.setup !== false) {
-      console.log(chalk.dim("Running setup scripts..."));
+      console.log(chalk.dim("Installing dependencies..."));
+      const shellWrapper = config.services.shell_wrapper || "";
 
       for (const repo of successfulRepos) {
-        const repoConfig = config.repos[repo];
-        if (!repoConfig?.setup_script) continue;
-
         const worktreeDir = join(workspaceDir, repo);
-        const shellWrapper = config.services.shell_wrapper || "";
-        const command = shellWrapper
-          ? `${shellWrapper} ${repoConfig.setup_script}`
-          : repoConfig.setup_script;
+        const packageJson = join(worktreeDir, "package.json");
+
+        if (!existsSync(packageJson)) continue;
+
+        const installCmd = shellWrapper
+          ? `${shellWrapper} pnpm install --prefer-offline`
+          : "pnpm install --prefer-offline";
 
         try {
-          execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
+          execSync(`bash -l -c 'cd "${worktreeDir}" && ${installCmd}'`, {
             cwd: worktreeDir,
-            stdio: "inherit",
+            stdio: "pipe", // Suppress output for cleaner logs
             timeout: 600000, // 10 minute timeout
           });
-          console.log(chalk.green(`  ✓ ${repo} setup complete`));
+          console.log(chalk.green(`  ✓ ${repo} dependencies installed`));
         } catch (error: any) {
-          console.log(chalk.yellow(`  ⚠ ${repo} setup failed`));
+          console.log(chalk.yellow(`  ⚠ ${repo} dependencies failed`));
+        }
+      }
+
+      // Run setup scripts (for non-pnpm tasks like builds, migrations, etc.)
+      const reposWithSetupScripts = successfulRepos.filter((repo) => {
+        const repoConfig = config.repos[repo];
+        return repoConfig?.setup_script && repoConfig.setup_script !== "pnpm install";
+      });
+
+      if (reposWithSetupScripts.length > 0) {
+        console.log(chalk.dim("Running setup scripts..."));
+
+        for (const repo of reposWithSetupScripts) {
+          const repoConfig = config.repos[repo];
+          const worktreeDir = join(workspaceDir, repo);
+          const command = shellWrapper
+            ? `${shellWrapper} ${repoConfig.setup_script}`
+            : repoConfig.setup_script;
+
+          try {
+            execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
+              cwd: worktreeDir,
+              stdio: "inherit",
+              timeout: 600000, // 10 minute timeout
+            });
+            console.log(chalk.green(`  ✓ ${repo} setup complete`));
+          } catch (error: any) {
+            console.log(chalk.yellow(`  ⚠ ${repo} setup failed`));
+          }
         }
       }
     }
@@ -369,7 +399,11 @@ export const createCommand = new Command("create")
         // Run seed command if configured
         if (config.database.seed_command) {
           console.log(chalk.dim("  Running database seed command..."));
-          const seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+          const shellWrapper = config.services.shell_wrapper || "";
+          let seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+          if (shellWrapper) {
+            seedCommand = `${shellWrapper} ${seedCommand}`;
+          }
           try {
             execSync(`bash -l -c '${seedCommand}'`, {
               cwd: projectRoot,

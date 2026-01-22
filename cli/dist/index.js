@@ -378,23 +378,47 @@ var createCommand = new Command("create").description("Create a new feature work
     process.exit(1);
   }
   if (options.setup !== false) {
-    console.log(chalk.dim("Running setup scripts..."));
+    console.log(chalk.dim("Installing dependencies..."));
+    const shellWrapper = config.services.shell_wrapper || "";
     for (const repo of successfulRepos) {
-      const repoConfig = config.repos[repo];
-      if (!repoConfig?.setup_script) continue;
       const worktreeDir = join3(workspaceDir, repo);
-      const shellWrapper = config.services.shell_wrapper || "";
-      const command = shellWrapper ? `${shellWrapper} ${repoConfig.setup_script}` : repoConfig.setup_script;
+      const packageJson = join3(worktreeDir, "package.json");
+      if (!existsSync3(packageJson)) continue;
+      const installCmd = shellWrapper ? `${shellWrapper} pnpm install --prefer-offline` : "pnpm install --prefer-offline";
       try {
-        execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
+        execSync(`bash -l -c 'cd "${worktreeDir}" && ${installCmd}'`, {
           cwd: worktreeDir,
-          stdio: "inherit",
+          stdio: "pipe",
+          // Suppress output for cleaner logs
           timeout: 6e5
           // 10 minute timeout
         });
-        console.log(chalk.green(`  \u2713 ${repo} setup complete`));
+        console.log(chalk.green(`  \u2713 ${repo} dependencies installed`));
       } catch (error) {
-        console.log(chalk.yellow(`  \u26A0 ${repo} setup failed`));
+        console.log(chalk.yellow(`  \u26A0 ${repo} dependencies failed`));
+      }
+    }
+    const reposWithSetupScripts = successfulRepos.filter((repo) => {
+      const repoConfig = config.repos[repo];
+      return repoConfig?.setup_script && repoConfig.setup_script !== "pnpm install";
+    });
+    if (reposWithSetupScripts.length > 0) {
+      console.log(chalk.dim("Running setup scripts..."));
+      for (const repo of reposWithSetupScripts) {
+        const repoConfig = config.repos[repo];
+        const worktreeDir = join3(workspaceDir, repo);
+        const command = shellWrapper ? `${shellWrapper} ${repoConfig.setup_script}` : repoConfig.setup_script;
+        try {
+          execSync(`bash -l -c 'cd "${worktreeDir}" && ${command}'`, {
+            cwd: worktreeDir,
+            stdio: "inherit",
+            timeout: 6e5
+            // 10 minute timeout
+          });
+          console.log(chalk.green(`  \u2713 ${repo} setup complete`));
+        } catch (error) {
+          console.log(chalk.yellow(`  \u26A0 ${repo} setup failed`));
+        }
       }
     }
   }
@@ -435,7 +459,11 @@ var createCommand = new Command("create").description("Create a new feature work
       console.log(chalk.green(`  \u2713 Database ready on port ${dbPort}`));
       if (config.database.seed_command) {
         console.log(chalk.dim("  Running database seed command..."));
-        const seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+        const shellWrapper = config.services.shell_wrapper || "";
+        let seedCommand = config.database.seed_command.replace(/\$\{port\}/g, String(dbPort));
+        if (shellWrapper) {
+          seedCommand = `${shellWrapper} ${seedCommand}`;
+        }
         try {
           execSync(`bash -l -c '${seedCommand}'`, {
             cwd: projectRoot2,
@@ -1158,8 +1186,15 @@ async function startService(repo, ctx) {
     spinner2.start(`Running pre-run for ${chalk5.cyan(repo)}...`);
     try {
       let preRunCommand = serviceConfig.pre_run;
-      const serverPort = runningServices.get("server");
-      if (serverPort) {
+      const serverConfig = config.services.definitions["server"];
+      if (serverConfig) {
+        const serverPort = calculateServicePort(
+          "server",
+          serverConfig.default_port,
+          config.services.base_port,
+          workspaceIndex,
+          config.services.port_offset
+        );
         preRunCommand = preRunCommand.replace(/\$\{server_port\}/g, String(serverPort));
       }
       const preRunCmd = shellWrapper ? `${shellWrapper} ${preRunCommand}` : preRunCommand;
@@ -1223,9 +1258,10 @@ async function startService(repo, ctx) {
     return { name: repo, port, error: error.message };
   }
 }
-async function startFileWatcher(_workspaceName, config, workspaceDir, runningServices) {
+async function startFileWatcher(workspaceName, config, workspaceDir, runningServices) {
   const serviceConfigs = config.services.definitions;
   const shellWrapper = config.services.shell_wrapper || "";
+  const workspaceIndex = getWorkspaceIndex(workspaceName);
   const triggerServices = [];
   for (const [name, cfg] of Object.entries(serviceConfigs)) {
     if (cfg.watch_files && cfg.watch_files.length > 0) {
@@ -1337,8 +1373,15 @@ async function startFileWatcher(_workspaceName, config, workspaceDir, runningSer
       console.log(`  ${chalk5.cyan("\u2192")} Running pre_run for ${chalk5.bold(dep.name)}...`);
       try {
         let preRunCmd = dep.preRun;
-        const serverPort = runningServices.get("server");
-        if (serverPort) {
+        const serverConfig = config.services.definitions["server"];
+        if (serverConfig) {
+          const serverPort = calculateServicePort(
+            "server",
+            serverConfig.default_port,
+            config.services.base_port,
+            workspaceIndex,
+            config.services.port_offset
+          );
           preRunCmd = preRunCmd.replace(/\$\{server_port\}/g, String(serverPort));
         }
         const fullCmd = shellWrapper ? `${shellWrapper} ${preRunCmd}` : preRunCmd;
@@ -1981,7 +2024,7 @@ init_utils();
 import { Command as Command11 } from "commander";
 import chalk11 from "chalk";
 import { execSync as execSync5, spawnSync as spawnSync2 } from "child_process";
-import { existsSync as existsSync10, readFileSync as readFileSync8, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync8, writeFileSync as writeFileSync6, mkdirSync as mkdirSync5, rmSync as rmSync3 } from "fs";
 import { join as join10 } from "path";
 
 // src/prompts/meta-agent.ts
@@ -2119,12 +2162,31 @@ var workCommand = new Command11("work").description("Start working on a feature 
       process.exit(1);
     }
   } else {
-    console.log(chalk11.green(`\u2713 Using existing workspace: ${workspaceName}`));
+    const existingConfig = getWorkspaceConfig(workspaceName);
+    if (!existingConfig) {
+      console.log(chalk11.yellow(`Invalid workspace detected (missing config). Auto-cleaning...`));
+      try {
+        execSync5(`hyve cleanup "${workspaceName}" --force`, { stdio: "pipe" });
+      } catch {
+        rmSync3(workspaceDir, { recursive: true, force: true });
+      }
+      console.log(chalk11.dim(`Removed invalid workspace. Creating fresh...`));
+      console.log();
+      try {
+        execSync5(`hyve create "${workspaceName}"`, {
+          stdio: "inherit"
+        });
+      } catch (error) {
+        console.error(chalk11.red(`Failed to create workspace: ${error.message}`));
+        process.exit(1);
+      }
+    } else {
+      console.log(chalk11.green(`\u2713 Using existing workspace: ${workspaceName}`));
+    }
   }
   const config = getWorkspaceConfig(workspaceName);
   if (!config) {
-    console.error(chalk11.red(`Invalid workspace - no .hyve-workspace.json found`));
-    console.log(chalk11.dim(`Try removing and recreating: hyve remove ${workspaceName}`));
+    console.error(chalk11.red(`Failed to create valid workspace`));
     process.exit(1);
   }
   console.log();
@@ -2212,7 +2274,11 @@ ${task}
       }
       console.log(chalk11.cyan.bold("Launching Claude Code..."));
       console.log();
-      const result = spawnSync2("claude", [], {
+      process.on("SIGINT", () => {
+      });
+      process.on("SIGTERM", () => {
+      });
+      const result = spawnSync2("claude", [task], {
         cwd: workspaceDir,
         stdio: "inherit"
       });

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { execSync, spawnSync } from "child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { getWorkspaceDir, getProjectRoot, loadConfig } from "../config.js";
 import { sanitizeBranchName, workspaceExists, getWorkspaceConfig, calculateServicePort } from "../utils.js";
@@ -47,14 +47,38 @@ export const workCommand = new Command("work")
         process.exit(1);
       }
     } else {
-      console.log(chalk.green(`✓ Using existing workspace: ${workspaceName}`));
+      // Workspace directory exists - verify it's valid
+      const existingConfig = getWorkspaceConfig(workspaceName);
+      if (!existingConfig) {
+        // Invalid workspace - auto-cleanup and recreate
+        console.log(chalk.yellow(`Invalid workspace detected (missing config). Auto-cleaning...`));
+        try {
+          // Try hyve cleanup first (handles git worktrees properly)
+          execSync(`hyve cleanup "${workspaceName}" --force`, { stdio: "pipe" });
+        } catch {
+          // Fallback to manual removal
+          rmSync(workspaceDir, { recursive: true, force: true });
+        }
+        console.log(chalk.dim(`Removed invalid workspace. Creating fresh...`));
+        console.log();
+
+        try {
+          execSync(`hyve create "${workspaceName}"`, {
+            stdio: "inherit",
+          });
+        } catch (error: any) {
+          console.error(chalk.red(`Failed to create workspace: ${error.message}`));
+          process.exit(1);
+        }
+      } else {
+        console.log(chalk.green(`✓ Using existing workspace: ${workspaceName}`));
+      }
     }
 
     // Read workspace config
     const config = getWorkspaceConfig(workspaceName);
     if (!config) {
-      console.error(chalk.red(`Invalid workspace - no .hyve-workspace.json found`));
-      console.log(chalk.dim(`Try removing and recreating: hyve remove ${workspaceName}`));
+      console.error(chalk.red(`Failed to create valid workspace`));
       process.exit(1);
     }
 
@@ -155,8 +179,14 @@ export const workCommand = new Command("work")
         console.log(chalk.cyan.bold("Launching Claude Code..."));
         console.log();
 
+        // Ignore SIGINT/SIGTERM in this process - let Claude handle it
+        // Services are already detached and will keep running
+        process.on("SIGINT", () => {});
+        process.on("SIGTERM", () => {});
+
         // Use spawnSync to block and take over the terminal
-        const result = spawnSync("claude", [], {
+        // Pass the task as initial prompt so Claude starts working immediately
+        const result = spawnSync("claude", [task], {
           cwd: workspaceDir,
           stdio: "inherit",
         });

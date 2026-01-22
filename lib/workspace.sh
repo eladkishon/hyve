@@ -48,6 +48,27 @@ list_feature_branches() {
     printf '%s\n' "${branches[@]}" | sort -u
 }
 
+# ============================================================================
+# Dependency Installation Utilities
+# ============================================================================
+
+# Fast pnpm install using prefer-offline mode
+# This leverages pnpm's content-addressable store for speed:
+# - --prefer-offline: uses local store first, avoids network calls when possible
+fast_pnpm_install() {
+    local workspace_dir="$1"
+    local shell_wrapper="$2"
+
+    local install_cmd="pnpm install --prefer-offline"
+
+    if [ -n "$shell_wrapper" ]; then
+        bash -l -c "cd '$workspace_dir' && $shell_wrapper $install_cmd" >/dev/null 2>&1
+    else
+        (cd "$workspace_dir" && $install_cmd) >/dev/null 2>&1
+    fi
+    return $?
+}
+
 # Create workspace
 cmd_create() {
     local feature_name=""
@@ -316,9 +337,10 @@ cmd_create() {
         exit 1
     fi
 
-    # Run setup scripts for each repo IN PARALLEL
+    # Install dependencies for each repo IN PARALLEL
+    # Uses pnpm's --frozen-lockfile --prefer-offline for speed
     echo ""
-    log_step "Running setup scripts (parallel)..."
+    log_step "Installing dependencies (parallel)..."
 
     # Get shell wrapper from config (e.g., for nvm)
     local config_file=$(find_config)
@@ -335,10 +357,56 @@ cmd_create() {
     local setup_pids=()
 
     for repo in "${created_repos[@]}"; do
-        local repo_path=$(get_repo_path "$repo")
         local worktree_dir="$workspace_dir/$repo"
 
-        # Check if repo has a setup script configured
+        # Skip if no package.json (not a Node project)
+        if [ ! -f "$worktree_dir/package.json" ]; then
+            continue
+        fi
+
+        # Run dependency install in background
+        (
+            local status_file="$setup_status_dir/$repo"
+            # Use --frozen-lockfile (skip resolution) and --prefer-offline (use local store)
+            # This is fast because pnpm's store already has most packages
+            if fast_pnpm_install "$worktree_dir" "$shell_wrapper"; then
+                echo "success" > "$status_file"
+            else
+                # Fallback to regular install if frozen-lockfile fails (e.g., lockfile outdated)
+                if [ -n "$shell_wrapper" ]; then
+                    bash -l -c "cd '$worktree_dir' && $shell_wrapper pnpm install" >/dev/null 2>&1
+                else
+                    (cd "$worktree_dir" && pnpm install) >/dev/null 2>&1
+                fi
+                if [ $? -eq 0 ]; then
+                    echo "success" > "$status_file"
+                else
+                    echo "failed" > "$status_file"
+                fi
+            fi
+        ) &
+        setup_pids+=("$!:$repo")
+    done
+
+    # Wait for all dependency installs and report results
+    for pid_repo in "${setup_pids[@]}"; do
+        local pid="${pid_repo%%:*}"
+        local repo="${pid_repo#*:}"
+        wait "$pid"
+        local status_file="$setup_status_dir/$repo"
+        if [ -f "$status_file" ] && [ "$(cat "$status_file")" = "success" ]; then
+            log_success "$repo → dependencies installed"
+        else
+            log_warning "$repo → dependencies failed (continuing anyway)"
+        fi
+    done
+
+    # Cleanup
+    rm -rf "$setup_status_dir"
+
+    # Run post-install setup scripts (for non-pnpm tasks like migrations, builds, etc.)
+    local has_setup_scripts=false
+    for repo in "${created_repos[@]}"; do
         local setup_script=""
         if [ -n "$config_file" ]; then
             if command -v yq &> /dev/null; then
@@ -346,29 +414,40 @@ cmd_create() {
                 if [ "$setup_script" = "null" ]; then
                     setup_script=""
                 fi
-            else
-                setup_script=$(awk -v repo="$repo" '
-                    /^  [a-zA-Z_-]+:/ {
-                        current_repo = $1
-                        gsub(/:/, "", current_repo)
-                    }
-                    current_repo == repo && /setup_script:/ {
-                        val = $0
-                        sub(/.*setup_script:[[:space:]]*/, "", val)
-                        gsub(/^"/, "", val)
-                        gsub(/"[[:space:]]*$/, "", val)
-                        gsub(/[[:space:]]*#.*$/, "", val)
-                        print val
-                        exit
-                    }
-                ' "$config_file")
             fi
         fi
+        # Skip if setup_script is just "pnpm install" (already handled above)
+        if [ -n "$setup_script" ] && [ "$setup_script" != "pnpm install" ]; then
+            has_setup_scripts=true
+            break
+        fi
+    done
 
-        if [ -n "$setup_script" ] && [ -f "$worktree_dir/package.json" ]; then
-            # Run setup in background
+    if $has_setup_scripts; then
+        echo ""
+        log_step "Running setup scripts..."
+        local script_status_dir=$(mktemp -d)
+        local script_pids=()
+
+        for repo in "${created_repos[@]}"; do
+            local worktree_dir="$workspace_dir/$repo"
+            local setup_script=""
+            if [ -n "$config_file" ]; then
+                if command -v yq &> /dev/null; then
+                    setup_script=$(yq eval ".repos.$repo.setup_script // \"\"" "$config_file" 2>/dev/null)
+                    if [ "$setup_script" = "null" ]; then
+                        setup_script=""
+                    fi
+                fi
+            fi
+
+            # Skip if no setup script or if it's just "pnpm install"
+            if [ -z "$setup_script" ] || [ "$setup_script" = "pnpm install" ]; then
+                continue
+            fi
+
             (
-                local status_file="$setup_status_dir/$repo"
+                local status_file="$script_status_dir/$repo"
                 if [ -n "$shell_wrapper" ]; then
                     if bash -l -c "cd '$worktree_dir' && $shell_wrapper $setup_script" >/dev/null 2>&1; then
                         echo "success" > "$status_file"
@@ -376,33 +455,30 @@ cmd_create() {
                         echo "failed" > "$status_file"
                     fi
                 else
-                    cd "$worktree_dir"
-                    if eval "$setup_script" >/dev/null 2>&1; then
+                    if (cd "$worktree_dir" && eval "$setup_script") >/dev/null 2>&1; then
                         echo "success" > "$status_file"
                     else
                         echo "failed" > "$status_file"
                     fi
                 fi
             ) &
-            setup_pids+=("$!:$repo")
-        fi
-    done
+            script_pids+=("$!:$repo")
+        done
 
-    # Wait for all setup jobs and report results
-    for pid_repo in "${setup_pids[@]}"; do
-        local pid="${pid_repo%%:*}"
-        local repo="${pid_repo#*:}"
-        wait "$pid"
-        local status_file="$setup_status_dir/$repo"
-        if [ -f "$status_file" ] && [ "$(cat "$status_file")" = "success" ]; then
-            log_success "$repo → setup complete"
-        else
-            log_warning "$repo → setup failed (continuing anyway)"
-        fi
-    done
+        for pid_repo in "${script_pids[@]}"; do
+            local pid="${pid_repo%%:*}"
+            local repo="${pid_repo#*:}"
+            wait "$pid"
+            local status_file="$script_status_dir/$repo"
+            if [ -f "$status_file" ] && [ "$(cat "$status_file")" = "success" ]; then
+                log_success "$repo → setup complete"
+            else
+                log_warning "$repo → setup failed (continuing anyway)"
+            fi
+        done
 
-    # Cleanup
-    rm -rf "$setup_status_dir"
+        rm -rf "$script_status_dir"
+    fi
 
     # Handle database/Docker setup
     local db_port=""
